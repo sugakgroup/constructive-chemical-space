@@ -111,6 +111,21 @@ The supported top-level names are exactly those listed in `constructive_chemical
 
 Internal helpers, execution-state classes, and module paths are not part of the v1.0 compatibility promise.
 
+### Stable v1.0 entry points
+
+The principal stable constructors and methods are:
+
+- `Constitution.from_indexed(...)`, `Constitution.all_unassigned_form()`
+- `ElectronAllocation.from_indexed(...)`, `ElectronAllocation.to_constitution()`, `ElectronAllocation.to_word()`
+- `ElectronAllocation.to_rdkit_mol(...)`, `ElectronAllocation.to_smiles(...)`
+- `Word.replay()`, `Word.replay_state()`, `Word.to_constitution()`
+- `PracticalWord.pre_end_state()`, `PracticalWord.completion_plan()`, `PracticalWord.completion_counts()`
+- `PracticalWord.expand()`, `PracticalWord.replay()`, `PracticalWord.to_constitution()`
+- `PracticalWord.to_rdkit_mol(...)`, `PracticalWord.to_smiles(...)`
+- `SearchProfile.allows(...)`
+
+For `ElectronAllocation`, the public unassigned-electron field/keyword is `num_unassigned_electrons`.
+
 ## Explicitly excluded from the v1.0 contract
 
 The following are not required by S1-S4 and are not part of the v1.0 reference API:
