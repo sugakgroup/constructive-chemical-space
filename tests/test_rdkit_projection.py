@@ -27,12 +27,12 @@ def test_zero_allocation_preserves_connection_as_unspecified_bond():
 
 
 def test_unassigned_electrons_are_not_silently_localized():
-    d = ElectronAllocation.from_indexed(["C"], [6], [], num_unassigned_electron=1)
+    d = ElectronAllocation.from_indexed(["C"], [6], [], num_unassigned_electrons=1)
     assert d.to_rdkit_mol() is None
     assert d.to_smiles() is None
 
 
 def test_unassigned_count_can_be_carried_as_mol_property_when_requested():
-    d = ElectronAllocation.from_indexed(["C"], [6], [], num_unassigned_electron=1)
+    d = ElectronAllocation.from_indexed(["C"], [6], [], num_unassigned_electrons=1)
     mol = d.to_rdkit_mol(allow_unassigned=True, sanitize=False)
     assert mol.GetIntProp("_CCSUnassignedElectrons") == 1
