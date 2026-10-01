@@ -61,7 +61,7 @@ def test_electron_allocation_quotient_retains_total_electron_count():
         ["H", "H"],
         [1, 1],
         [(0, 1, 1, 1)],
-        num_unassigned_electron=3,
+        num_unassigned_electrons=3,
     )
     assert d.num_electrons == 5
     assert d.num_unassigned_electrons == 3
