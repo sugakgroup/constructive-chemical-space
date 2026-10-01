@@ -15,7 +15,7 @@ def test_exact_constructability_with_unassigned_electrons_and_zero_allocations()
         ["B", "B"],
         [5, 5],
         [(0, 1, 0, 0)],
-        num_unassigned_electron=2,
+        num_unassigned_electrons=2,
     )
     assert d.to_word().replay() == d
 
