@@ -298,7 +298,7 @@ def _build_rdkit_mol_once(
 
     if include_ccs_properties:
         mol.SetIntProp("_CCSTotalElectrons", form.num_electrons)
-        mol.SetIntProp("_CCSUnassignedElectrons", form.num_unassigned_electron)
+        mol.SetIntProp("_CCSUnassignedElectrons", form.num_unassigned_electrons)
         mol.SetProp(
             "_CCSProjectionNote",
             "RDKit bond types/formal charges are a downstream best-effort projection; "
@@ -328,7 +328,7 @@ def _electron_allocation_to_rdkit_mol(
     If that fails and a (2,0)/(0,2) dative allocation is present, a second
     attempt shifts donor/acceptor charges by +1/-1, respectively.
     """
-    if form.num_unassigned_electron and not allow_unassigned:
+    if form.num_unassigned_electrons and not allow_unassigned:
         message = (
             "the CCS form contains unassigned electrons (n_empty > 0), which "
             "cannot be represented faithfully in an ordinary RDKit molecular graph"
@@ -692,14 +692,14 @@ class Constitution:
 class ElectronAllocation:
     """D = (C_X, S, n, a, n_empty), intrinsically index-independent."""
 
-    __slots__ = ("collection", "_assigned", "allocated_connections", "num_unassigned_electron")
+    __slots__ = ("collection", "_assigned", "allocated_connections", "num_unassigned_electrons")
 
     def __init__(
         self,
         collection: NuclearCollection | Iterable[Nucleus],
         assigned_electrons: Mapping[Nucleus, int],
         allocated_connections: Iterable[AllocatedConnection] = (),
-        num_unassigned_electron: int = 0,
+        num_unassigned_electrons: int = 0,
     ) -> None:
         self.collection = (
             collection if isinstance(collection, NuclearCollection)
@@ -713,8 +713,8 @@ class ElectronAllocation:
         if any(not _is_nonnegative_int(value) for value in assigned.values()):
             raise ValueError("assigned electron counts must be nonnegative integers")
 
-        if not _is_nonnegative_int(num_unassigned_electron):
-            raise ValueError("num_unassigned_electron must be a nonnegative integer")
+        if not _is_nonnegative_int(num_unassigned_electrons):
+            raise ValueError("num_unassigned_electrons must be a nonnegative integer")
 
         allocs = tuple(allocated_connections)
         seen_pairs: set[Connection] = set()
@@ -729,7 +729,7 @@ class ElectronAllocation:
 
         self._assigned = assigned
         self.allocated_connections = frozenset(allocs)
-        self.num_unassigned_electron = num_unassigned_electron
+        self.num_unassigned_electrons = num_unassigned_electrons
 
         for nucleus in nuclei:
             if self.allocated_sum(nucleus) > self.assigned_electrons(nucleus):
@@ -748,7 +748,7 @@ class ElectronAllocation:
         identities: Sequence[str | NuclearIdentity],
         assigned_electrons: Sequence[int],
         allocated_connections: Iterable[tuple[int, int, int, int]] = (),
-        num_unassigned_electron: int = 0,
+        num_unassigned_electrons: int = 0,
     ) -> "ElectronAllocation":
         if len(identities) != len(assigned_electrons):
             raise ValueError("identities and assigned_electrons must have the same length")
@@ -762,18 +762,13 @@ class ElectronAllocation:
                 allocs.append(AllocatedConnection(nuclei[i], nuclei[j], ai, aj))
             except IndexError as exc:
                 raise ValueError("temporary input index is out of range") from exc
-        return cls(nuclei, assigned, allocs, num_unassigned_electron)
+        return cls(nuclei, assigned, allocs, num_unassigned_electrons)
 
     from_data = from_indexed
 
     @property
     def nuclei(self) -> frozenset[Nucleus]:
         return self.collection.nuclei
-
-    @property
-    def num_unassigned_electrons(self) -> int:
-        """Preferred public spelling for n_empty."""
-        return self.num_unassigned_electron
 
     @property
     def connections(self) -> frozenset[Connection]:
@@ -812,7 +807,7 @@ class ElectronAllocation:
 
     @property
     def num_electrons(self) -> int:
-        return sum(self._assigned.values()) + self.num_unassigned_electron
+        return sum(self._assigned.values()) + self.num_unassigned_electrons
 
     @property
     def num_total_electron(self) -> int:
@@ -897,12 +892,12 @@ class ElectronAllocation:
         tokens: list[CoreToken] = [
             Nuc(v.identity, self.assigned_electrons(v)) for v in order
         ]
-        tokens.extend(Ele() for _ in range(self.num_unassigned_electron))        for edge in self.allocated_connections:
+        tokens.extend(Ele() for _ in range(self.num_unassigned_electrons))
+        for edge in self.allocated_connections:
             tokens.append(
                 Con(
                     address[edge.endpoint1],
-                    address[edge.endpoint2],
-                    edge.allocation1,
+                    address[edge.endpoint2],                    edge.allocation1,
                     edge.allocation2,
                 )
             )
@@ -913,7 +908,7 @@ class ElectronAllocation:
         return (
             f"ElectronAllocation(nuclei={dict(sorted(counts.items()))}, "
             f"connections={len(self.allocated_connections)}, "
-            f"N_e={self.num_electrons}, n_empty={self.num_unassigned_electron})"
+            f"N_e={self.num_electrons}, n_empty={self.num_unassigned_electrons})"
         )
 
 
@@ -986,7 +981,7 @@ def _constitution_isomorphic(a: Constitution, b: Constitution) -> bool:
 
 
 def _allocation_isomorphic(a: ElectronAllocation, b: ElectronAllocation) -> bool:
-    if a.num_unassigned_electron != b.num_unassigned_electron:
+    if a.num_unassigned_electrons != b.num_unassigned_electrons:
         return False
     if len(a.nuclei) != len(b.nuclei):
         return False
@@ -1209,7 +1204,7 @@ class ExecutionState:
                 nuclei,
                 assigned,
                 self.form.allocated_connections,
-                self.form.num_unassigned_electron,
+                self.form.num_unassigned_electrons,
             )
             return ExecutionState(
                 new_form,
@@ -1222,7 +1217,7 @@ class ExecutionState:
                 self.form.collection,
                 self.form.assigned_mapping(),
                 self.form.allocated_connections,
-                self.form.num_unassigned_electron + 1,
+                self.form.num_unassigned_electrons + 1,
             )
             return ExecutionState(new_form, self.address_table, self.reservations)
 
@@ -1249,7 +1244,7 @@ class ExecutionState:
                 self.form.collection,
                 self.form.assigned_mapping(),
                 new_allocs,
-                self.form.num_unassigned_electron,
+                self.form.num_unassigned_electrons,
             )
             return ExecutionState(new_form, self.address_table, self.reservations)
 
