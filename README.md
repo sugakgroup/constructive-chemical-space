@@ -3,12 +3,11 @@ Reference implementation of Constructive Chemical Space (CCS): molecular constit
 
 ## Visualization
 
-The optional `ccs_visualize.py` layer renders CCS objects with RDKit without
-changing CCS identity or replay semantics.
+The core CCS objects have an optional RDKit-backed `.show()` method for
+Jupyter/IPython use.
 
 ```python
-from ccs_s1_s4 import ElectronAllocation, Nuc, Con, Word
-from ccs_visualize import draw, save_drawing
+from ccs_s1_s4 import ElectronAllocation
 
 d = ElectronAllocation.from_indexed(
     ["C", "C"],
@@ -16,31 +15,21 @@ d = ElectronAllocation.from_indexed(
     [(0, 1, 1, 0)],
 )
 
-save_drawing(
-    d,
-    "one_electron_bond.svg",
-    show_indices=True,
-    show_hydrogens=False,
-)
+d.show(show_indices=True)
 ```
 
-`draw(...)` accepts a `Constitution`, `ElectronAllocation`, `Word`, or
-`PracticalWord`. Words are replayed before drawing; practical words are
+The same method is available on `Constitution`, `Word`, and
+`PracticalWord`. Words are replayed before display; practical words are
 expanded first.
 
-Depiction rules are deliberately conservative:
+Depiction is deliberately conservative. Constitution view shows only the
+direct-connection graph and `N_e`. Allocation view displays the derived local
+charges `q_v = Z(X(v)) - n_v`; `(1,1)`, `(2,2)`, and `(3,3)` use
+single/double/triple glyphs, `(2,0)` and `(0,2)` use a dative arrow, and
+all other endpoint allocations are written literally on the connection
+(e.g. `1e (1,0)`, `(3,2)`, `(5,5)`, `(0,6)`, `(0,9)`).
 
-- Constitution view: direct connections are drawn as graph edges only; no bond
-  order or local charge is inferred. `N_e` is shown in the footer.
-- Allocation view: derived local charges `q_v = Z(X(v)) - n_v` are displayed.
-- `(1,1)`, `(2,2)`, and `(3,3)` use single, double, and triple bond glyphs.
-- `(2,0)` and `(0,2)` use a directed dative-bond glyph.
-- Every other allocation is drawn as a connection with a literal label, e.g.
-  `(0,0)`, `1e (1,0)`, `(3,2)`, `(5,5)`, `(0,6)`, or `(0,9)`.
-- `n_empty` is shown in the footer when nonzero.
-- `diagnostics=True` adds `n`, residual-electron count, and derived charge to
-  atom annotations.
-
-SVG and PNG output are supported. `show_indices=True` displays temporary
-construction/display addresses; these indices are not intrinsic CCS identity.
-
+Hydrogens are hidden automatically when heavy atoms are present, but all-H
+systems remain visible. Use `show_hydrogens=True` to force explicit H display,
+`diagnostics=True` for `n`/residual/charge annotations, and
+`show_total_charge=True` to add total charge to the footer.
