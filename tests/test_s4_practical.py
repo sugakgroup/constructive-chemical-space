@@ -178,3 +178,52 @@ def test_first_end_excludes_subsequent_macro_invocations_and_core_tokens():
     gly = Macro("one", [Nuc("C")])
     p = PracticalWord([Nuc("H"), End(), gly(), Nuc("O"), End()])
     assert p.expand().tokens == (Nuc("H"),)
+
+def test_s4_table_s1_all_reservation_values():
+    # Every entry of SI Table S1, including the non-monotonic group 15-17 rows.
+    expected = {
+        "B": (3, 2, 1, 0, 0, 0, 0, 0),
+        "C": (4, 3, 2, 1, 0, 0, 0, 0),
+        "N": (3, 2, 1, 0, 1, 0, 0, 0),
+        "O": (2, 1, 0, 1, 0, 1, 0, 0),
+        "F": (1, 0, 1, 0, 1, 0, 1, 0),
+    }
+    for symbol, values in expected.items():
+        for u, expected_h in enumerate(values):
+            actual_h = PracticalWord([Nuc(symbol, u=u), End()]).completion_counts()
+            assert actual_h == (expected_h,), (symbol, u, expected_h, actual_h)
+
+
+def test_s4_table_s2_all_assigned_electron_offsets():
+    expected = {
+        "B": (2, 3, 4),
+        "C": (3, 4, 3),
+        "N": (4, 3, 2),
+        "O": (3, 2, 1),
+        "F": (2, 1, 0),
+    }
+    atomic_number = {"B": 5, "C": 6, "N": 7, "O": 8, "F": 9}
+    for symbol, values in expected.items():
+        for offset, expected_h in zip((-1, 0, 1), values):
+            p = PracticalWord([Nuc(symbol, atomic_number[symbol] + offset), End()])
+            assert p.completion_counts() == (expected_h,)
+
+
+def test_s4_table_s3_expanded_position_branch():
+    # P bonded to two substituents (1,1) and one O (2,2):
+    # b=5, B=T=4, E=1, L=max(0,1)=1, h=1.
+    p = PracticalWord([
+        Nuc("P"), Nuc("H"), Nuc("H"), Nuc("O"),
+        Con(0, 1, 1, 1), Con(0, 2, 1, 1),
+        Con(0, 3, 2, 2), End(),
+    ])
+    info = p.completion_plan()[0]
+    assert (info.b, info.B, info.T, info.E, info.L, info.h) == (5, 4, 4, 1, 1, 1)
+
+
+def test_zero_allocation_edge_occupies_one_completion_position():
+    p = PracticalWord([
+        Nuc("C"), Nuc("H"), Con(0, 1, 0, 0), End(),
+    ])
+    info = p.completion_plan()[0]
+    assert (info.B, info.T, info.E, info.L, info.h) == (0, 1, 4, 3, 2)
