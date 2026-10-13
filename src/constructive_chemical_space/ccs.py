@@ -2233,21 +2233,117 @@ def _ccs_layout_2d(mol, layout: str) -> None:
         return (ring_cost + bond_cost + overlap_cost
                 + 0.08*intersections), ring_cost
 
+    def spread_overlapping_leaves(points):
+        """Separate coincident terminal atoms without moving cycle vertices.
+
+        Based solely on graph degree and 2D geometry; no H/metal-specific
+        exceptions. Other candidate layouts and CCS allocations are unchanged.
+        """
+        if not graph.number_of_edges():
+            return points
+        from math import atan2, sin, cos, pi
+        p = [list(pair) for pair in points]
+        bond_lengths = [
+            hypot(p[i][0]-p[j][0],p[i][1]-p[j][1])
+            for i,j in graph.edges()
+        ]
+        scale = median(bond_lengths)
+        if scale <= 1e-8:
+            return points
+        cx = sum(v[0] for v in p)/len(p)
+        cy = sum(v[1] for v in p)/len(p)
+        for parent in sorted(graph):
+            leaves = sorted(
+                v for v in graph.neighbors(parent) if graph.degree(v) == 1
+            )
+            if len(leaves) < 2:
+                continue
+            if all(hypot(
+                p[leaves[i]][0]-p[leaves[j]][0],
+                p[leaves[i]][1]-p[leaves[j]][1]
+            ) >= 0.45*scale
+                   for i in range(len(leaves))
+                   for j in range(i+1,len(leaves))):
+                continue
+            x0,y0 = p[parent]
+            dx,dy = 0.0,0.0
+            for other in graph.neighbors(parent):
+                if other in leaves:
+                    continue
+                ux,uy = p[other][0]-x0,p[other][1]-y0
+                d = hypot(ux,uy)
+                if d>1e-8:
+                    dx-=ux/d
+                    dy-=uy/d
+            if hypot(dx,dy)<1e-5:
+                dx,dy=x0-cx,y0-cy
+            if hypot(dx,dy)<1e-5:
+                dx,dy=0.0,1.0
+            baseline=atan2(dy,dx)
+            for k,leaf in enumerate(leaves):
+                angle=baseline+(k-(len(leaves)-1)/2.0)*1.15
+                best=None
+                for delta in (0.0,-0.25,0.25,-0.55,0.55,1.,-1.):
+                    for length in (1.,1.25,1.50):
+                        th=angle+delta
+                        x=x0+length*scale*cos(th)
+                        y=y0+length*scale*sin(th)
+                        separation=min(
+                            hypot(x-p[v][0],y-p[v][1])
+                            for v in graph if v not in (parent,leaf)
+                        )
+                        value=(
+                            150*max(0.0,1.0*scale-separation)**2
+                            + 3*abs(delta)+2*abs(length-1.0)
+                        )
+                        if best is None or value<best[0]:
+                            best=(value,x,y)
+                p[leaf]=[best[1],best[2]]
+        return tuple((x,y) for x,y in p)
+
+    # A highly incident graph hub may deform otherwise regular rings when
+    # *all* edges are treated as conventional single bonds by CoordGen.
+    # In one extra purely topological candidate, weaken high-degree edges
+    # during COORDINATE GENERATION ONLY, then restore the original graph for
+    # every visible connection and electron-allocation glyph.
+    max_degree=max((degree for _,degree in graph.degree()),default=0)
     candidates = []
-    for method in (("coordgen", "rdkit") if layout == "auto"
-                   else (layout,)):
+    methods = (
+        ("coordgen", "coordgen-light-hubs", "rdkit")
+        if layout == "auto" and max_degree >= 8
+        else (("coordgen","rdkit") if layout=="auto" else (layout,))
+    )
+    for method in methods:
         try:
-            if method == "coordgen":
+            if method in {"coordgen","coordgen-light-hubs"}:
                 from rdkit.Chem import rdCoordGen
-                rdCoordGen.AddCoords(mol)
+                if method == "coordgen-light-hubs":
+                    temporary = Chem.Mol(mol)
+                    for edge in temporary.GetBonds():
+                        i,j=edge.GetBeginAtomIdx(),edge.GetEndAtomIdx()
+                        if max(graph.degree(i),graph.degree(j))>=8:
+                            edge.SetBondType(Chem.BondType.ZERO)
+                    rdCoordGen.AddCoords(temporary)
+                    if temporary.GetNumConformers():
+                        temp_coords=tuple(
+                            (temporary.GetConformer().GetAtomPosition(i).x,
+                             temporary.GetConformer().GetAtomPosition(i).y)
+                            for i in range(mol.GetNumAtoms())
+                        )
+                        install(temp_coords)
+                else:
+                    rdCoordGen.AddCoords(mol)
             else:
                 rdDepictor.Compute2DCoords(mol)
             xy = capture()
             if xy is not None:
+                # Do not change skeleton rings; only separate deg-1 leaves.
+                xy = spread_overlapping_leaves(xy)
+                install(xy)
                 crossing = _ccs_segment_intersections(mol)
                 energy, rings = score(xy, crossing)
                 candidates.append((
-                    (energy, method != "coordgen"),
+                    (energy, method not in {"coordgen","coordgen-light-hubs"}),
                     method, xy, crossing, rings
                 ))
         except (ImportError, RuntimeError, ValueError) as exc:
