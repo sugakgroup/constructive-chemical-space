@@ -1,0 +1,50 @@
+name: Execute S5 notebooks with real Jupyter kernels
+
+on:
+  push:
+    branches: [feature/s5-records-validation]
+    paths:
+      - .github/workflows/execute_s5_notebooks.yml
+      - examples/s5/execute_notebooks.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: s5-notebook-execution
+  cancel-in-progress: false
+
+jobs:
+  execute-notebooks:
+    if: github.repository == 'sugakgroup/constructive-chemical-space' && github.ref == 'refs/heads/feature/s5-records-validation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/s5-records-validation
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CCS, RDKit, and real Jupyter execution dependencies
+        run: |
+          python -m pip install -e ".[dev]"
+          python -m pip install "nbclient>=0.10" "nbformat>=5.10" "ipykernel>=6"
+      - name: Execute every SI S5 notebook in an actual ipykernel
+        run: |
+          python examples/s5/execute_notebooks.py
+      - name: Validate genuinely executed outputs before committing
+        run: python -m pytest -q tests/test_s5_examples.py
+      - name: Commit only the actual Jupyter outputs and provenance report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add examples/s5/notebooks/*.ipynb examples/s5/execution_report.json
+          if git diff --cached --quiet; then
+            echo "No executed notebook changes; refusing to publish a fake result" >&2
+            exit 1
+          fi
+          git commit -m "docs(examples): save outputs from 55 executed Jupyter kernels"
+          git push origin HEAD:feature/s5-records-validation
