@@ -2,7 +2,7 @@
   "schema": "ccs-s5-notebooks-1.0",
   "description": "Index of 55 reproducible CCS S5 notebooks, with one shared data fixture for 84 full electron-allocation forms",
   "data_file": "s5_records.json.xz",
-  "data_sha256": "1a9c1dcd119159aba4a95ff9941ea73110de18f97583200e33b3578df6aad8dd",
+  "data_sha256": "0b10a14089114d4e0aca44a99f45ca68a78bb6bea5232d0ba5304b98ba98e426",
   "record_count": 55,
   "form_count": 84,
   "source": {
