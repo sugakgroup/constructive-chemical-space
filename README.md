@@ -257,19 +257,25 @@ RDKit depiction is downstream and non-normative. In particular, line styles,
 positions, and arrow glyphs are graphical interpretations only, not CCS identity
 fields or physical bonding assignments.
 
-## SI S5 worked-example corpus
+## SI S5 worked examples (55 Jupyter notebooks)
 
-All **55 numbered S5 records / 84 electron-allocation forms** from the attached
-Supporting Information are included as a compact, machine-readable
-`data/s5_records.json.xz` fixture. The standard library `lzma` module reads
-the compressed UTF-8 JSON. `tests/test_s5_records.py` checks every displayed
-form against the S1-S4 data invariants, the exact explicit-enumeration S5
-`W(D)` construction word, and replay back to the same intrinsic form.
+Each of the **55 numbered Section S5 records** has a dedicated runnable notebook in
+[`examples/s5/notebooks/`](examples/s5/notebooks/), covering all **84 electron-allocation
+forms**. Start with [`S5_01_H2.ipynb`](examples/s5/notebooks/S5_01_H2.ipynb),
+[`S5_02_H2O.ipynb`](examples/s5/notebooks/S5_02_H2O.ipynb), or
+[`S5_55_Catenane.ipynb`](examples/s5/notebooks/S5_55_Catenane.ipynb).
 
-See [S5_VALIDATION.md](S5_VALIDATION.md) for source hashes, schema, audit
-results, and the distinction between document transcription and core tests.
-The fixture's indices are temporary S5 display addresses, not CCS identity
-fields.
+The [S5 examples README](examples/s5/README.md) explains how each notebook
+builds the full Constitution and every ElectronAllocation, verifies the exact
+temporary-enumeration `W(D)` by Replay, and displays them with the packaged
+`.show()` API (explicit H and every connection are shown by default).
+
+One normalized source-data file, `examples/s5/data/s5_records.json.xz`,
+is shared by all notebooks and `tests/test_s5_examples.py`. The separate
+`examples/s5/data/manifest.json` indexes notebook filenames, SI references
+and Table S4 expected values. No duplicate CCS core is introduced.
+See [S5_VALIDATION.md](S5_VALIDATION.md) for source hashes, transcription
+verification and reproducibility limitations.
 
 ## Tests
 
@@ -282,10 +288,10 @@ tests/test_s3_coverage.py
 tests/test_s4_practical.py
 tests/test_rdkit_projection.py
 tests/test_visualization.py
-tests/test_s5_records.py
+tests/test_s5_examples.py
 ```
 
-The core suite also checks intrinsic isomorphism, immutability and defensive copying, deterministic S5 word generation for explicit nuclear order, multi-residue glycine macros, End eligibility boundaries, and valid/invalid macro arguments. Complete machine-readable transcription and independent cross-checking of all **55 S5 records / 84 forms** is intentionally deferred to a separate data-validation change after v1.0 API freeze; it is not claimed by this implementation PR.
+The core suite also checks intrinsic isomorphism, immutability and defensive copying, deterministic S5 word generation for explicit nuclear order, multi-residue glycine macros, End eligibility boundaries, and valid/invalid macro arguments. All 55 S5 records and 84 forms are maintained in the examples/s5 data fixture, and verified by executable Notebook and Replay tests.
 
 Run them with:
 

@@ -7,3 +7,8 @@ dist/
 build/
 *.egg-info/
 .ipynb_checkpoints/
+
+# Generated S5 notebook figures (examples only)
+/examples/s5/outputs/*
+!/examples/s5/outputs/.gitkeep
+/examples/s5/notebooks/.ipynb_checkpoints/

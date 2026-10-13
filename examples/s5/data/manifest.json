@@ -1,0 +1,1298 @@
+{
+  "schema": "ccs-s5-notebooks-1.0",
+  "description": "Index of 55 reproducible CCS S5 notebooks, with one shared data fixture for 84 full electron-allocation forms",
+  "data_file": "s5_records.json.xz",
+  "data_sha256": "1a9c1dcd119159aba4a95ff9941ea73110de18f97583200e33b3578df6aad8dd",
+  "record_count": 55,
+  "form_count": 84,
+  "source": {
+    "checksum_kind": "sha256",
+    "docx": "supporting_information(1).docx",
+    "pdf": "supporting_information(1).pdf",
+    "docx_sha256": "00513db5f6d68fe456911460cbedbf185f77393d01e2642d081079a0c09cb89a",
+    "pdf_sha256": "777f7746048a1859aef9c955a0346063082a3ff91384c319dfc90b765bfa31b5",
+    "table": "Table S4",
+    "preserves_si": true
+  },
+  "records": [
+    {
+      "number": 1,
+      "name": "Molecular hydrogen, H2",
+      "section": "S5.1",
+      "notebook": "S5_01_H2.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 1,
+        "electrons": 2,
+        "forms": 2,
+        "nuclei": 2
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 233,
+        "pdf_pages": [
+          27
+        ]
+      }
+    },
+    {
+      "number": 2,
+      "name": "Water, H2O",
+      "section": "S5.1",
+      "notebook": "S5_02_H2O.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 2,
+        "electrons": 10,
+        "forms": 1,
+        "nuclei": 3
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 237,
+        "pdf_pages": [
+          27
+        ]
+      }
+    },
+    {
+      "number": 3,
+      "name": "Ethane",
+      "section": "S5.1",
+      "notebook": "S5_03_Ethane.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 7,
+        "electrons": 18,
+        "forms": 1,
+        "nuclei": 8
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 240,
+        "pdf_pages": [
+          27,
+          28
+        ]
+      }
+    },
+    {
+      "number": 4,
+      "name": "Ethene",
+      "section": "S5.1",
+      "notebook": "S5_04_Ethene.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 5,
+        "electrons": 16,
+        "forms": 1,
+        "nuclei": 6
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 243,
+        "pdf_pages": [
+          28
+        ]
+      }
+    },
+    {
+      "number": 5,
+      "name": "Acetylene",
+      "section": "S5.1",
+      "notebook": "S5_05_Acetylene.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 3,
+        "electrons": 14,
+        "forms": 1,
+        "nuclei": 4
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 246,
+        "pdf_pages": [
+          28
+        ]
+      }
+    },
+    {
+      "number": 6,
+      "name": "Formaldehyde",
+      "section": "S5.1",
+      "notebook": "S5_06_Formaldehyde.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 3,
+        "electrons": 16,
+        "forms": 1,
+        "nuclei": 4
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 249,
+        "pdf_pages": [
+          28
+        ]
+      }
+    },
+    {
+      "number": 7,
+      "name": "Dimethyl ether",
+      "section": "S5.1",
+      "notebook": "S5_07_Dimethyl_Ether.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 8,
+        "electrons": 26,
+        "forms": 1,
+        "nuclei": 9
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 252,
+        "pdf_pages": [
+          28
+        ]
+      }
+    },
+    {
+      "number": 8,
+      "name": "Dinitrogen, N2",
+      "section": "S5.1",
+      "notebook": "S5_08_N2.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 1,
+        "electrons": 14,
+        "forms": 1,
+        "nuclei": 2
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 255,
+        "pdf_pages": [
+          28,
+          29
+        ]
+      }
+    },
+    {
+      "number": 9,
+      "name": "Benzene",
+      "section": "S5.2",
+      "notebook": "S5_09_Benzene.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 12,
+        "electrons": 42,
+        "forms": 2,
+        "nuclei": 12
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 259,
+        "pdf_pages": [
+          29
+        ]
+      }
+    },
+    {
+      "number": 10,
+      "name": "Phenol",
+      "section": "S5.2",
+      "notebook": "S5_10_Phenol.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 13,
+        "electrons": 50,
+        "forms": 4,
+        "nuclei": 13
+      },
+      "forms": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "source": {
+        "docx_paragraph": 263,
+        "pdf_pages": [
+          29,
+          30
+        ]
+      }
+    },
+    {
+      "number": 11,
+      "name": "Cyclo[18]carbon",
+      "section": "S5.2",
+      "notebook": "S5_11_Cyclo18carbon.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 18,
+        "electrons": 108,
+        "forms": 2,
+        "nuclei": 18
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 269,
+        "pdf_pages": [
+          30
+        ]
+      }
+    },
+    {
+      "number": 12,
+      "name": "Azulene",
+      "section": "S5.2",
+      "notebook": "S5_12_Azulene.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 19,
+        "electrons": 68,
+        "forms": 2,
+        "nuclei": 18
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 273,
+        "pdf_pages": [
+          30,
+          31
+        ]
+      }
+    },
+    {
+      "number": 13,
+      "name": "Bis-periazulene (unsubstituted parent framework)",
+      "section": "S5.2",
+      "notebook": "S5_13_Bis_periazulene.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 29,
+        "electrons": 106,
+        "forms": 3,
+        "nuclei": 26
+      },
+      "forms": [
+        "A",
+        "B",
+        "C"
+      ],
+      "source": {
+        "docx_paragraph": 277,
+        "pdf_pages": [
+          31
+        ]
+      }
+    },
+    {
+      "number": 14,
+      "name": "Ammonia-borane",
+      "section": "S5.3",
+      "notebook": "S5_14_Ammonia_Borane.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 7,
+        "electrons": 18,
+        "forms": 2,
+        "nuclei": 8
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 283,
+        "pdf_pages": [
+          31,
+          32
+        ]
+      }
+    },
+    {
+      "number": 15,
+      "name": "1,3-Dimethylimidazol-2-ylidene",
+      "section": "S5.3",
+      "notebook": "S5_15_NHC.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 15,
+        "electrons": 52,
+        "forms": 2,
+        "nuclei": 15
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 287,
+        "pdf_pages": [
+          32
+        ]
+      }
+    },
+    {
+      "number": 16,
+      "name": "Hexaphenylcarbodiphosphorane, C(PPh3)2",
+      "section": "S5.3",
+      "notebook": "S5_16_Carbodiphosphorane.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 74,
+        "electrons": 282,
+        "forms": 2,
+        "nuclei": 69
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 291,
+        "pdf_pages": [
+          32,
+          33
+        ]
+      }
+    },
+    {
+      "number": 17,
+      "name": "Bifluoride, [F–H–F]–",
+      "section": "S5.3",
+      "notebook": "S5_17_Bifluoride.ipynb",
+      "expected": {
+        "charge": -1,
+        "connections": 2,
+        "electrons": 20,
+        "forms": 2,
+        "nuclei": 3
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 295,
+        "pdf_pages": [
+          33,
+          34
+        ]
+      }
+    },
+    {
+      "number": 18,
+      "name": "Ferrocene",
+      "section": "S5.4",
+      "notebook": "S5_18_Ferrocene.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 30,
+        "electrons": 96,
+        "forms": 2,
+        "nuclei": 21
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 300,
+        "pdf_pages": [
+          34
+        ]
+      }
+    },
+    {
+      "number": 19,
+      "name": "Uranocene, U(COT)2",
+      "section": "S5.4",
+      "notebook": "S5_19_Uranocene.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 48,
+        "electrons": 204,
+        "forms": 2,
+        "nuclei": 33
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 304,
+        "pdf_pages": [
+          34,
+          35
+        ]
+      }
+    },
+    {
+      "number": 20,
+      "name": "Neutral Tb(Pc)2 double-decker complex",
+      "section": "S5.4",
+      "notebook": "S5_20_TbPc2.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 136,
+        "electrons": 593,
+        "forms": 1,
+        "nuclei": 113
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 308,
+        "pdf_pages": [
+          35,
+          36,
+          37
+        ]
+      }
+    },
+    {
+      "number": 21,
+      "name": "Lu2(Pc)3 triple-decker complex",
+      "section": "S5.4",
+      "notebook": "S5_21_Lu2Pc3.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 208,
+        "electrons": 934,
+        "forms": 1,
+        "nuclei": 170
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 311,
+        "pdf_pages": [
+          37,
+          38,
+          39,
+          40
+        ]
+      }
+    },
+    {
+      "number": 22,
+      "name": "Nitroprusside, [Fe(CN)5(NO)]2−",
+      "section": "S5.5",
+      "notebook": "S5_22_Nitroprusside.ipynb",
+      "expected": {
+        "charge": -2,
+        "connections": 12,
+        "electrons": 108,
+        "forms": 3,
+        "nuclei": 13
+      },
+      "forms": [
+        "A",
+        "B",
+        "C"
+      ],
+      "source": {
+        "docx_paragraph": 315,
+        "pdf_pages": [
+          40,
+          41
+        ]
+      }
+    },
+    {
+      "number": 23,
+      "name": "[Co(Me2tpa)(dbdiox)]+",
+      "section": "S5.5",
+      "notebook": "S5_23_Co_dbdiox.ipynb",
+      "expected": {
+        "charge": 1,
+        "connections": 90,
+        "electrons": 316,
+        "forms": 2,
+        "nuclei": 83
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 320,
+        "pdf_pages": [
+          41,
+          42
+        ]
+      }
+    },
+    {
+      "number": 24,
+      "name": "(iPrPDI)Fe(N2)",
+      "section": "S5.5",
+      "notebook": "S5_24_Fe_PDI_N2.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 86,
+        "electrons": 302,
+        "forms": 3,
+        "nuclei": 82
+      },
+      "forms": [
+        "A",
+        "B",
+        "C"
+      ],
+      "source": {
+        "docx_paragraph": 324,
+        "pdf_pages": [
+          42,
+          43,
+          44
+        ]
+      }
+    },
+    {
+      "number": 25,
+      "name": "Anion of Zeise’s salt, [PtCl3(C2H4)]–",
+      "section": "S5.5",
+      "notebook": "S5_25_Zeises_Salt.ipynb",
+      "expected": {
+        "charge": -1,
+        "connections": 10,
+        "electrons": 146,
+        "forms": 3,
+        "nuclei": 10
+      },
+      "forms": [
+        "A",
+        "B",
+        "C"
+      ],
+      "source": {
+        "docx_paragraph": 329,
+        "pdf_pages": [
+          44,
+          45
+        ]
+      }
+    },
+    {
+      "number": 26,
+      "name": "Co4(CO)12",
+      "section": "S5.5",
+      "notebook": "S5_26_Co4CO12.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 33,
+        "electrons": 276,
+        "forms": 2,
+        "nuclei": 28
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 334,
+        "pdf_pages": [
+          45
+        ]
+      }
+    },
+    {
+      "number": 27,
+      "name": "First-generation Grubbs catalyst",
+      "section": "S5.5",
+      "notebook": "S5_27_Grubbs1.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 126,
+        "electrons": 438,
+        "forms": 1,
+        "nuclei": 120
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 338,
+        "pdf_pages": [
+          45,
+          46,
+          47,
+          48
+        ]
+      }
+    },
+    {
+      "number": 28,
+      "name": "[HCr2(CO)10]–",
+      "section": "S5.5",
+      "notebook": "S5_28_HCr2CO10.ipynb",
+      "expected": {
+        "charge": -1,
+        "connections": 22,
+        "electrons": 190,
+        "forms": 2,
+        "nuclei": 23
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 341,
+        "pdf_pages": [
+          48
+        ]
+      }
+    },
+    {
+      "number": 29,
+      "name": "[Re2Cl8]2–",
+      "section": "S5.6",
+      "notebook": "S5_29_Re2Cl8.ipynb",
+      "expected": {
+        "charge": -2,
+        "connections": 9,
+        "electrons": 288,
+        "forms": 1,
+        "nuclei": 10
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 346,
+        "pdf_pages": [
+          48
+        ]
+      }
+    },
+    {
+      "number": 30,
+      "name": "Ar'CrCrAr': Power-type fivefold Cr–Cr bonded complex",
+      "section": "S5.6",
+      "notebook": "S5_30_CrCr_Quintuple.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 143,
+        "electrons": 482,
+        "forms": 1,
+        "nuclei": 136
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 349,
+        "pdf_pages": [
+          48,
+          49,
+          50,
+          51
+        ]
+      }
+    },
+    {
+      "number": 31,
+      "name": "[Ru2(OAc)4(H2O)2]+: mixed-valent Ru2 paddlewheel complex",
+      "section": "S5.6",
+      "notebook": "S5_31_Ru2_Paddlewheel.ipynb",
+      "expected": {
+        "charge": 1,
+        "connections": 39,
+        "electrons": 231,
+        "forms": 1,
+        "nuclei": 36
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 352,
+        "pdf_pages": [
+          51
+        ]
+      }
+    },
+    {
+      "number": 32,
+      "name": "Co–U–Co methyl-truncated model",
+      "section": "S5.6",
+      "notebook": "S5_32_Co_U_Co.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 62,
+        "electrons": 342,
+        "forms": 2,
+        "nuclei": 59
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 355,
+        "pdf_pages": [
+          51,
+          52,
+          53
+        ]
+      }
+    },
+    {
+      "number": 33,
+      "name": "Uranyl, UO22+",
+      "section": "S5.6",
+      "notebook": "S5_33_Uranyl.ipynb",
+      "expected": {
+        "charge": 2,
+        "connections": 2,
+        "electrons": 106,
+        "forms": 2,
+        "nuclei": 3
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 359,
+        "pdf_pages": [
+          53
+        ]
+      }
+    },
+    {
+      "number": 34,
+      "name": "H2+",
+      "section": "S5.7",
+      "notebook": "S5_34_H2_Plus.ipynb",
+      "expected": {
+        "charge": 1,
+        "connections": 1,
+        "electrons": 1,
+        "forms": 1,
+        "nuclei": 2
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 364,
+        "pdf_pages": [
+          53
+        ]
+      }
+    },
+    {
+      "number": 35,
+      "name": "Triangle H3+ molecule",
+      "section": "S5.7",
+      "notebook": "S5_35_H3_Plus.ipynb",
+      "expected": {
+        "charge": 1,
+        "connections": 3,
+        "electrons": 2,
+        "forms": 1,
+        "nuclei": 3
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 367,
+        "pdf_pages": [
+          53
+        ]
+      }
+    },
+    {
+      "number": 36,
+      "name": "Carbon–carbon one-electron σ-bond",
+      "section": "S5.7",
+      "notebook": "S5_36_CC_OneElectron.ipynb",
+      "expected": {
+        "charge": 1,
+        "connections": 77,
+        "electrons": 277,
+        "forms": 2,
+        "nuclei": 68
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 370,
+        "pdf_pages": [
+          53,
+          54,
+          55
+        ]
+      }
+    },
+    {
+      "number": 37,
+      "name": "1,8-Bis(phenylselenyl)naphthalene radical cation",
+      "section": "S5.7",
+      "notebook": "S5_37_Bis_Phenylselenyl_Naphthalene.ipynb",
+      "expected": {
+        "charge": 1,
+        "connections": 44,
+        "electrons": 215,
+        "forms": 2,
+        "nuclei": 40
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 374,
+        "pdf_pages": [
+          55,
+          56
+        ]
+      }
+    },
+    {
+      "number": 38,
+      "name": "[(Me2S)2]•+",
+      "section": "S5.7",
+      "notebook": "S5_38_Dimethylsulfide_Dimer_Cation.ipynb",
+      "expected": {
+        "charge": 1,
+        "connections": 17,
+        "electrons": 67,
+        "forms": 2,
+        "nuclei": 18
+      },
+      "forms": [
+        "A",
+        "B"
+      ],
+      "source": {
+        "docx_paragraph": 378,
+        "pdf_pages": [
+          56
+        ]
+      }
+    },
+    {
+      "number": 39,
+      "name": "closo-[B12H12]2–",
+      "section": "S5.8",
+      "notebook": "S5_39_B12H12_Closo.ipynb",
+      "expected": {
+        "charge": -2,
+        "connections": 42,
+        "electrons": 74,
+        "forms": 1,
+        "nuclei": 24
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 383,
+        "pdf_pages": [
+          56,
+          57
+        ]
+      }
+    },
+    {
+      "number": 40,
+      "name": "ortho-C2B10H12",
+      "section": "S5.8",
+      "notebook": "S5_40_C2B10H12_Ortho.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 42,
+        "electrons": 74,
+        "forms": 1,
+        "nuclei": 24
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 386,
+        "pdf_pages": [
+          57
+        ]
+      }
+    },
+    {
+      "number": 41,
+      "name": "[Fe4S4(SMe)4]2–",
+      "section": "S5.8",
+      "notebook": "S5_41_Fe4S4.ipynb",
+      "expected": {
+        "charge": -2,
+        "connections": 32,
+        "electrons": 270,
+        "forms": 1,
+        "nuclei": 28
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 389,
+        "pdf_pages": [
+          57,
+          58
+        ]
+      }
+    },
+    {
+      "number": 42,
+      "name": "[Ni@Pb12]2–",
+      "section": "S5.8",
+      "notebook": "S5_42_Ni_at_Pb12.ipynb",
+      "expected": {
+        "charge": -2,
+        "connections": 42,
+        "electrons": 1014,
+        "forms": 1,
+        "nuclei": 13
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 392,
+        "pdf_pages": [
+          58,
+          59
+        ]
+      }
+    },
+    {
+      "number": 43,
+      "name": "[K(2,2,2-crypt)]+e–",
+      "section": "S5.9",
+      "notebook": "S5_43_K_Cryptand_Electron.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 71,
+        "electrons": 225,
+        "forms": 1,
+        "nuclei": 63
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 396,
+        "pdf_pages": [
+          59,
+          60
+        ]
+      }
+    },
+    {
+      "number": 44,
+      "name": "[Na(2,2,2-crypt)]+Na–",
+      "section": "S5.9",
+      "notebook": "S5_44_Na_Cryptand_Na_Anion.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 71,
+        "electrons": 228,
+        "forms": 1,
+        "nuclei": 64
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 399,
+        "pdf_pages": [
+          60,
+          61
+        ]
+      }
+    },
+    {
+      "number": 45,
+      "name": "Disconnected Na/Cl",
+      "section": "S5.9",
+      "notebook": "S5_45_NaCl_Disconnected.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 0,
+        "electrons": 28,
+        "forms": 1,
+        "nuclei": 2
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 402,
+        "pdf_pages": [
+          61
+        ]
+      }
+    },
+    {
+      "number": 46,
+      "name": "Electron",
+      "section": "S5.9",
+      "notebook": "S5_46_Electron.ipynb",
+      "expected": {
+        "charge": -1,
+        "connections": 0,
+        "electrons": 1,
+        "forms": 1,
+        "nuclei": 0
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 405,
+        "pdf_pages": [
+          61
+        ]
+      }
+    },
+    {
+      "number": 47,
+      "name": "Perfluorocubane",
+      "section": "S5.9",
+      "notebook": "S5_47_Perfluorocubane.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 20,
+        "electrons": 120,
+        "forms": 1,
+        "nuclei": 16
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 409,
+        "pdf_pages": [
+          61,
+          62
+        ]
+      }
+    },
+    {
+      "number": 48,
+      "name": "Perfluorocubane anion",
+      "section": "S5.9",
+      "notebook": "S5_48_Perfluorocubane_Anion.ipynb",
+      "expected": {
+        "charge": -1,
+        "connections": 20,
+        "electrons": 121,
+        "forms": 1,
+        "nuclei": 16
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 413,
+        "pdf_pages": [
+          62
+        ]
+      }
+    },
+    {
+      "number": 49,
+      "name": "2-Hydroxypyridine",
+      "section": "S5.10",
+      "notebook": "S5_49_2_Hydroxypyridine.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 12,
+        "electrons": 50,
+        "forms": 1,
+        "nuclei": 12
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 418,
+        "pdf_pages": [
+          62
+        ]
+      }
+    },
+    {
+      "number": 50,
+      "name": "2-Pyridone",
+      "section": "S5.10",
+      "notebook": "S5_50_2_Pyridone.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 12,
+        "electrons": 50,
+        "forms": 1,
+        "nuclei": 12
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 422,
+        "pdf_pages": [
+          62,
+          63
+        ]
+      }
+    },
+    {
+      "number": 51,
+      "name": "[Co(NH3)5(NO2)]2+, N-bound",
+      "section": "S5.10",
+      "notebook": "S5_51_Co_Nitro_N_Bound.ipynb",
+      "expected": {
+        "charge": 2,
+        "connections": 23,
+        "electrons": 98,
+        "forms": 1,
+        "nuclei": 24
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 426,
+        "pdf_pages": [
+          63
+        ]
+      }
+    },
+    {
+      "number": 52,
+      "name": "[Co(NH3)5(NO2)]2+, O-bound",
+      "section": "S5.10",
+      "notebook": "S5_52_Co_Nitrito_O_Bound.ipynb",
+      "expected": {
+        "charge": 2,
+        "connections": 23,
+        "electrons": 98,
+        "forms": 1,
+        "nuclei": 24
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 430,
+        "pdf_pages": [
+          63,
+          64
+        ]
+      }
+    },
+    {
+      "number": 53,
+      "name": "cis/trans-[Pt(NH3)2Cl2]",
+      "section": "S5.10",
+      "notebook": "S5_53_Pt_Cis_Trans.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 10,
+        "electrons": 132,
+        "forms": 1,
+        "nuclei": 11
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 434,
+        "pdf_pages": [
+          64
+        ]
+      }
+    },
+    {
+      "number": 54,
+      "name": "Δ/Λ-[Ru(bpy)3]2+",
+      "section": "S5.10",
+      "notebook": "S5_54_Ru_bpy3_Delta_Lambda.ipynb",
+      "expected": {
+        "charge": 2,
+        "connections": 69,
+        "electrons": 288,
+        "forms": 1,
+        "nuclei": 61
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 438,
+        "pdf_pages": [
+          64,
+          65
+        ]
+      }
+    },
+    {
+      "number": 55,
+      "name": "[2]Catenane and two unlinked macrocycles",
+      "section": "S5.10",
+      "notebook": "S5_55_Catenane.ipynb",
+      "expected": {
+        "charge": 0,
+        "connections": 108,
+        "electrons": 288,
+        "forms": 1,
+        "nuclei": 108
+      },
+      "forms": [
+        "A"
+      ],
+      "source": {
+        "docx_paragraph": 442,
+        "pdf_pages": [
+          65,
+          66,
+          67
+        ]
+      }
+    }
+  ]
+}

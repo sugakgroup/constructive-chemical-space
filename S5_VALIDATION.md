@@ -33,13 +33,13 @@ The data blob was uploaded byte-for-byte (Git blob SHA-1 `f594259a60a87756d223ec
 
 ## Machine-readable fixture
 
-File: `data/s5_records.json.xz`. It contains UTF-8 JSON compressed with the Python-standard-library xz/lzma format to keep the private repository small. Read it with:
+File: `examples/s5/data/s5_records.json.xz`. It contains UTF-8 JSON compressed with the Python-standard-library xz/lzma format to keep the private repository small. Read it with:
 
 ```python
 import json
 import lzma
 
-with lzma.open("data/s5_records.json.xz", "rt", encoding="utf-8") as f:
+with lzma.open("examples/s5/data/s5_records.json.xz", "rt", encoding="utf-8") as f:
     corpus = json.load(f)
 print(len(corpus["records"]))  # 55
 ```
@@ -52,8 +52,25 @@ print(len(corpus["records"]))  # 55
 
 ## CI
 
-`python -m pytest tests/test_s5_records.py` tests all 84 forms as CCS value objects, verifies exact S5 token order and replay, the electron-allocation quotient, Table S4 counts and charges, and representative intrinsic relabelings. This test uses only the existing CCS core and Python standard library (no RDKit or visualization dependency). For every form, the replay's temporary address table gives an explicit field-preserving bijection. Generic graph-isomorphism equality is additionally tested on smaller examples instead of repeatedly searching high-symmetry 100+-nucleus graphs; the full fieldwise replay checks establish intrinsic equality under S1 renaming.
+`python -m pytest tests/test_s5_examples.py` tests all 84 forms as CCS value objects, verifies exact S5 token order and replay, the electron-allocation quotient, Table S4 counts and charges, and representative intrinsic relabelings. This test uses only the existing CCS core and Python standard library (no RDKit or visualization dependency). For every form, the replay's temporary address table gives an explicit field-preserving bijection. Generic graph-isomorphism equality is additionally tested on smaller examples instead of repeatedly searching high-symmetry 100+-nucleus graphs; the full fieldwise replay checks establish intrinsic equality under S1 renaming.
 
 The original PDF and DOCX are not committed to the repository. The included hashes and source positions permit an external source audit; CI **does not** independently regenerate the fixture from those documents. Passing these tests establishes consistency and reproducible witnesses for the **specified** 84 forms, not physical chemical validity or exhaustive coverage of all finite CCS words.
 
 **Status**: source-level checks pass; executable CI status is reported by the PR's latest workflow run. This PR must not change S1–S4 semantics or be merged without explicit approval.
+
+## Notebook organization and execution
+
+The S5 examples are now exposed as **55 Jupyter notebooks** under
+`examples/s5/notebooks/`, indexed by `examples/s5/data/manifest.json`.
+A small `examples/s5/_common.py` reads the single compressed data fixture,
+constructs the package's existing immutable CCS objects, verifies the exact
+display-order `W(D)` and Replay, and supports optional SVG/PNG export. It is
+not an alternative CCS core implementation.
+
+Notebook figures are computed on demand through
+`Constitution.show()` and `ElectronAllocation.show()`; the complete,
+explicit-H graph is the default. Notebook outputs are not committed, and
+generated images go to ignored `examples/s5/outputs/` only when requested.
+CI checks every Notebook file's structure, correspondence to the manifest,
+all 84 Form witnesses and selected notebook code execution without display.
+The original SI PDF/DOCX are still not re-extracted in CI.
