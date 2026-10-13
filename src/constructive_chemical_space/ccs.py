@@ -2365,6 +2365,17 @@ def _render_ccs_svg(
     )
     drawer = rdMolDraw2D.MolDraw2DSVG(width, body_height)
     opts = drawer.drawOptions()
+    # Carbon is normally hidden by chemical drawing conventions. When a CCS
+    # atom bears a derived charge sign or residual valence dots, show its
+    # element symbol so that these labels have an unambiguous visible owner.
+    for atom in mol.GetAtoms():
+        if atom.GetSymbol() != "C" or not atom.HasProp("_CCSAssignedElectrons"):
+            continue
+        q = atom.GetIntProp("_CCSAssignmentImbalance")
+        remainder = (atom.GetIntProp("_CCSResidualValenceElectrons")
+                     if atom.HasProp("_CCSResidualValenceElectrons") else 0)
+        if q or remainder > 0:
+            opts.atomLabels[atom.GetIdx()] = "C"
     opts.annotationFontScale = annotation_scale
     opts.bondLineWidth = 2.2
     opts.additionalAtomLabelPadding = 0.12
@@ -2478,6 +2489,17 @@ def _render_ccs_png(
     )
     drawer = rdMolDraw2D.MolDraw2DCairo(width, body_height)
     opts = drawer.drawOptions()
+    # Carbon is normally hidden by chemical drawing conventions. When a CCS
+    # atom bears a derived charge sign or residual valence dots, show its
+    # element symbol so that these labels have an unambiguous visible owner.
+    for atom in mol.GetAtoms():
+        if atom.GetSymbol() != "C" or not atom.HasProp("_CCSAssignedElectrons"):
+            continue
+        q = atom.GetIntProp("_CCSAssignmentImbalance")
+        remainder = (atom.GetIntProp("_CCSResidualValenceElectrons")
+                     if atom.HasProp("_CCSResidualValenceElectrons") else 0)
+        if q or remainder > 0:
+            opts.atomLabels[atom.GetIdx()] = "C"
     opts.annotationFontScale = annotation_scale
     opts.bondLineWidth = 2.2
     opts.additionalAtomLabelPadding = 0.12
