@@ -1,0 +1,4 @@
+Full-corpus real Jupyter regeneration requested on 2026-10-13 for PR #4.
+Source: updated generic ring-aware 2D layout (commit c54f97719ac7333a51c63bd13907a02b181e38c9).
+Exactly 55 SI records and 84 forms. Commit only genuine kernel outputs.
+No merge or multi-version final matrix is requested.
