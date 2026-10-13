@@ -36,3 +36,16 @@ def test_unassigned_count_can_be_carried_as_mol_property_when_requested():
     d = ElectronAllocation.from_indexed(["C"], [6], [], num_unassigned_electrons=1)
     mol = d.to_rdkit_mol(allow_unassigned=True, sanitize=False)
     assert mol.GetIntProp("_CCSUnassignedElectrons") == 1
+
+def test_rdkit_projection_preserves_assignment_imbalance_separately():
+    d = ElectronAllocation.from_indexed(
+        ["N", "B"], [7, 5], [(0, 1, 2, 0)]
+    )
+    mol = d.to_rdkit_mol(sanitize=False)
+    assert mol is not None
+    for atom in mol.GetAtoms():
+        assert atom.HasProp("_CCSAssignmentImbalance")
+        assert atom.GetIntProp("_CCSAssignmentImbalance") == 0
+        assert atom.GetIntProp("_CCSAuxCharge") == 0
+        # FormalCharge is an RDKit projection field, not the CCS definition.
+        assert atom.GetFormalCharge() == 0
