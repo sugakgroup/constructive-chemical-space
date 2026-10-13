@@ -74,3 +74,5 @@ The SI transcription/source audit, its source checksums and the difference
 between source-document verification and executable-fixture replay are
 recorded in [S5_VALIDATION.md](../../S5_VALIDATION.md). The original PDF/DOCX
 are not automatically re-extracted during CI.
+
+In the visualization CI environment, all 55 constitutions and all 84 forms are rendered as well-formed, full-explicit-H SVGs. This is an executable depiction check, not a claim that these formal electronic descriptions correspond to experimentally observed states.
