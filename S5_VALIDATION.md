@@ -100,3 +100,31 @@ CI checks every Notebook file's structure, correspondence to the manifest,
 all 84 Form witnesses, selected notebook loading/replay cells executed as Python,
 and **actual SVG rendering of all 84 word-generated constitutions and all 84
 word-generated allocations** with explicit H retained. The original SI PDF/DOCX are not re-extracted in CI.
+
+## Author-confirmed correction to Record 13 (bis-periazulene)
+
+The author supplied the explicit Form B and Form C `a changes` and confirmed
+the Form C `n changes`. The original machine-readable corpus incorrectly
+contained `(9,14):(1,1)` and `(13,14):(2,2)` in both B/C. These two
+assignments have now been corrected to `(9,14):(2,2)` and
+`(13,14):(1,1)` in each form; the unchanged Form A values at `(10,11)`
+and `(12,13)` remain `(2,2)`. Form C still contains `n_0=7`, `n_7=5`.
+
+This is an **explicit author-specified correction**, distinct from the
+original PDF–DOCX extraction audit, which applies to the pre-correction
+fixture. It must be synchronized into the final submitted SI manuscript if
+the source document differs. The new normalized binary fixture fingerprint
+is stored in `examples/s5/data/manifest.json` and independently checked
+by CI. The correction script is idempotent and checks the old values before
+editing, rather than silently rewriting other source fields.
+
+## Display scope: 2D crossing and residual electrons
+
+The notebook uses an explicitly H-complete 2D CCS direct-connection graph.
+NetworkX planarity testing identifies 51 planar S5 records (crossing-free
+straight-line rendering is required) and four **nonplanar** cases
+(21 Lu2(Pc)3, 42 [Ni@Pb12]2−, 43 K-cryptand/electron, 44 Na-cryptand/Na
+electride), for which at least one crossing is mathematically unavoidable.
+No 3D structure is asserted. The 13–17 group residual valence electron dots
+and assignment-imbalance signs are derived annotations, not intrinsic CCS
+identity or claims of measured electronic structure.
