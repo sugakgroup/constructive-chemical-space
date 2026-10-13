@@ -67,10 +67,29 @@ constructs the package's existing immutable CCS objects, verifies the exact
 display-order `W(D)` and Replay, and supports optional SVG/PNG export. It is
 not an alternative CCS core implementation.
 
-Notebook figures are computed on demand through
-`Constitution.show()` and `ElectronAllocation.show()`; the complete,
-explicit-H graph is the default. Notebook outputs are not committed, and
-generated images go to ignored `examples/s5/outputs/` only when requested.
+Each notebook now contains independently inspectable **literal Nuc/Ele/Con
+construction words** for every displayed Form. Its code actually replays
+each Word, obtains a new ElectronAllocation and its Constitution, checks
+the complete word tokens against the original SI fixture and validates
+the constructed objects. The diagrams display **these replay-generated
+objects**, not the reference fixture forms.
+
+The actual notebook outputs **are committed**. They were produced by the
+GitHub Actions job
+[38354095805](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38354095805),
+which ran all 55 notebooks in genuine Jupyter ipykernels via
+`nbclient.NotebookClient.execute()`: 6 executed code cells per notebook,
+55 constitution SVGs and 84 allocation SVGs, totaling **139 real SVGs**.
+Environment: Python 3.11.17, RDKit 2026.09.1, nbclient 0.11.0.
+The run log and `examples/s5/execution_report.json` record the input
+commit, execution counts, per-notebook code SHA-256 and SVG-output SHA-256.
+`tests/test_s5_examples.py` rehashes these persisted kernel payloads and
+compares them against the report. The output fields were never hand-built;
+`generate_explicit_words.py` produces code only and deliberately resets
+execution counts and output lists before real kernel execution.
+
+Extra exported SVG/PNG files under `examples/s5/outputs/` remain opt-in and
+Git-ignored. Complete explicit-H diagrams are the default.
 CI checks every Notebook file's structure, correspondence to the manifest,
 all 84 Form witnesses, selected notebook loading/replay cells executed as Python,
 and **SVG rendering of all 55 constitutions and all 84 allocation forms** with
