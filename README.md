@@ -78,7 +78,7 @@ M = D.to_constitution()
 
 ## Index-independent objects
 
-`Constitution` and `ElectronAllocation` are intrinsic objects. Convenience constructors may use temporary integer labels, but equality ignores arbitrary renaming of nuclei.
+`Constitution` and `ElectronAllocation` are **immutable intrinsic value objects**. Their nuclear carriers, connections, assigned electron counts, and electron totals cannot be changed through attribute reassignment after construction. Assigned-electron inputs are defensively copied and stored read-only; `assigned_mapping()` returns a separate mutable copy. Convenience constructors may use temporary integer labels, but equality ignores arbitrary renaming of nuclei.
 
 ```python
 from constructive_chemical_space import Constitution
@@ -111,9 +111,24 @@ D = ElectronAllocation.from_indexed(
     [(0, 1, 1, 1), (0, 2, 1, 1)],
 )
 
+# Any chosen enumeration gives a valid witness.  For reproducible token
+# ordering across runs, preserve and pass an explicit sequence of Nucleus
+# objects, e.g. a Word.replay_state().address_table from the same form.
 w = D.to_word()
 assert w.replay() == D
 ```
+
+For **deterministic S5 construction words**, supply `D.to_word(order=nuclear_order)` where `nuclear_order` contains each nucleus of **that same D** exactly once. The resulting word installs nuclei in that order, emits `Ele` exactly `n_empty` times, and sorts `Con(i,j; ai,aj)` by increasing `(i,j)`, with `i < j` and allocations oriented to those endpoints. Without an explicit order, a valid but potentially different temporary enumeration is chosen. This does **not** define or require an intrinsic canonical numbering.
+
+For example, when a form comes from replay, the accompanying temporary order can be retained explicitly:
+
+```python
+state = water.replay_state()
+reproducible_word = state.form.to_word(order=state.address_table)
+assert reproducible_word.replay() == state.form
+```
+
+The S1.4 auxiliary assignment imbalance `q_v = Z(X(v)) - n_v` is available through `D.assignment_imbalance(nucleus)`. The old `D.formal_charge(nucleus)` method remains as a **deprecated compatibility alias**, raising `DeprecationWarning`; it does not assert a conventional Lewis formal charge or an oxidation state.
 
 A constitution also provides the all-unassigned reference form used in the existence proof:
 
@@ -178,7 +193,7 @@ mol = D.to_rdkit_mol()
 smiles = D.to_smiles(remove_hs=True)
 ```
 
-This projection is deliberately downstream and lossy. CCS endpoint allocations are not bond orders. The implementation uses a conservative heuristic for RDKit bond types, retains CCS allocation data as RDKit properties, and does not silently localize `n_empty`. By default, a form with unassigned electrons returns `None` for RDKit/SMILES projection unless `allow_unassigned=True` is requested for a structural `Mol` carrying the count only as metadata.
+This projection is deliberately downstream and lossy. CCS endpoint allocations are not bond orders, and CCS assignment imbalance is **not** defined as RDKit/Lewis formal charge. The implementation uses a conservative heuristic for RDKit bond types and initially projects `q_v` into the toolkit formal-charge field solely as a best-effort guess (with a possible dative-charge retry during sanitization). The original CCS quantity is retained independently as the RDKit atom property `_CCSAssignmentImbalance`; the legacy property `_CCSAuxCharge` is retained for compatibility. CCS endpoint-allocation data are also preserved as RDKit bond properties, and `n_empty` is never silently localized. By default, a form with unassigned electrons returns `None` for RDKit/SMILES projection unless `allow_unassigned=True` is requested for a structural `Mol` carrying the count only as metadata.
 
 ## Tests
 
@@ -191,6 +206,8 @@ tests/test_s3_coverage.py
 tests/test_s4_practical.py
 tests/test_rdkit_projection.py
 ```
+
+The core suite also checks intrinsic isomorphism, immutability and defensive copying, deterministic S5 word generation for explicit nuclear order, multi-residue glycine macros, End eligibility boundaries, and valid/invalid macro arguments. Complete machine-readable transcription and independent cross-checking of all **55 S5 records / 84 forms** is intentionally deferred to a separate data-validation change after v1.0 API freeze; it is not claimed by this implementation PR.
 
 Run them with:
 
