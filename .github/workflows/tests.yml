@@ -18,7 +18,7 @@ jobs:
       - name: Install package and test dependencies
         run: python -m pip install -e ".[test]"
       - name: Run core tests
-        run: python -m pytest tests/test_s1_formal.py tests/test_s2_replay.py tests/test_s3_coverage.py tests/test_s4_practical.py
+        run: python -m pytest tests/test_s1_formal.py tests/test_s2_replay.py tests/test_s3_coverage.py tests/test_s4_practical.py tests/test_s5_records.py
 
   rdkit_visualization:
     runs-on: ubuntu-latest
