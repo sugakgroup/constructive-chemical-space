@@ -269,13 +269,16 @@ or isotope-resolved hydrogen. Such images are marked `H omitted - lossy view`.
 They must not be treated as complete CCS constitutions or as faithful molecular
 identity diagrams.
 
-For crossing-aware 2D depiction, the optional `networkx` dependency checks
-whether the direct-connection graph is planar. `layout="auto"` applies the
-**same graph-independent criteria to all elements and complexes**: compare
-RDKit and CoordGen layouts, add a seeded spring-repulsion candidate when
-connectivity is dense, and prefer larger interatomic separation with fewer
-connection crossings. Planar graphs get crossing-free straight lines;
-nonplanar graphs explicitly warn that some crossings are unavoidable.
+The optional `networkx` dependency classifies graph planarity. For
+`layout="auto"`, RDKit and CoordGen provide candidate 2D coordinates;
+high-degree graphs additionally use a generic CoordGen candidate with
+temporarily weakened hub connections. The same graph-based score for all
+nuclear identities prioritizes short-ring and cage geometry, ring-centered
+fully incident hubs, reasonable bond lengths, and nonbonded atom separation.
+Line crossings have only a weak penalty: **a planar graph may legitimately be
+depicted with crossings** to keep familiar chemical shapes. Mathematically
+nonplanar graphs show a warning; a seeded spring layout is used only if
+regular coordinate generation fails.
 No speculative 3D geometry is generated. In the S5 notebooks, the drawing
 canvas is automatically enlarged according to maximum connection degree so
 the visible bond distances also increase (coordinate-only scaling would
@@ -305,11 +308,12 @@ actually replays them into new ElectronAllocation and Constitution objects,
 verifies both against the independently specified SI forms, and visualizes
 **the replay-produced objects** using `.show()` (all H explicit by default).
 
-All 55 notebooks include **actual Jupyter kernel execution outputs**:
-168 SVGs in total (**84 form-specific constitutions plus 84 allocations**)
-from the earlier complete kernel run. The newest density-aware drawings are
-available as genuine representative preview artifacts and will be installed
-into the complete notebooks only at the manually triggered final run.
+All 55 notebooks include **actual Jupyter kernel execution outputs**
+from the final ring-aware layout and vector-minus rendering: **168 SVGs**
+(84 form-specific Constitutions and 84 ElectronAllocations). The latest
+[full Jupyter run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509)
+completed successfully with **494 tests passing both before and after
+committing** the authentic Notebook outputs. [Browse all 55 notebooks](examples/s5/NOTEBOOK_INDEX.md).
 All 84 form-specific constitutions are proved identical under the displayed
 nucleus-index bijection before rendering, including large symmetric examples.
 `examples/s5/execution_report.json` records genuine kernel execution counts,

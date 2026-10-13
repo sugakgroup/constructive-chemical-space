@@ -127,16 +127,20 @@ unique lone-pair interpretation. H and nuclei outside that p-block range
 receive no residual valence dots by default. The visualization input is immutable
 and does not acquire any display indices; caller-provided `order` is used
 only for reproducible depiction. Word-based displays use replay order by
-default. SVG generation requires RDKit and NetworkX for planarity testing; PNG also
-requires Pillow, and `show()` additionally requires IPython. The 2D layout
-uses no metal, cluster, ligand or named-example-specific branches: RDKit and
-CoordGen candidate drawings are compared with a seeded spring-repulsion
-candidate for high-degree/nonplanar graphs using the same intersection,
-interatomic-spacing and bond-length criteria. A crossing-free straight-line
-planar embedding is mandatory where the direct-connection graph is planar.
-Planar CCS graphs must have no unrelated bond-line crossings. Mathematically nonplanar
-graphs cannot satisfy that condition and receive a visible disclaimer rather
-than pretending the crossings can be removed. No physical 3D model is inferred.
+default. SVG generation requires RDKit and NetworkX for planarity testing; PNG
+also requires Pillow, and `show()` additionally requires IPython. The 2D
+coordinate candidates are generated from direct nuclear connections alone,
+independently of endpoint-allocation drawing styles. RDKit and CoordGen are
+compared, and high-degree graphs additionally receive a CoordGen candidate
+with temporarily weakened hub connections. One graph-only score prioritizes
+recognizable ring/cage geometry, ring-centered fully incident hubs, balanced
+connection lengths and nonbonded separation. Crossings carry only a weak
+penalty even if the graph is planar. A seeded spring fallback is available
+if the primary engines fail. Mathematically nonplanar graphs carry a warning.
+The selection has **no special cases based on element, metal or named
+example**, and no physical 3D geometry is inferred. Negative auxiliary q
+signs are SVG `line` strokes, not Unicode minus characters, ensuring
+IPython cannot convert them into escaped byte text in saved notebooks.
 
 ## Stable v1.0 top-level imports
 

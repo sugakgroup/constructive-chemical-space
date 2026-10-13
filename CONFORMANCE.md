@@ -17,7 +17,7 @@ Date: 2026-10-13. Basis: *Defining Chemical Space Constructively*, Supporting In
 | S4.5 finite macros, argument admissibility, repeated Gly | `Macro`, `MacroCon`, `Arg` | `test_s4_practical.py` |
 | S5 deterministic `W(D)` relative to an explicit display enumeration | `ElectronAllocation.to_word(order=...)` | `test_s3_coverage.py` |
 | Non-normative RDKit projection; `n_empty` is not silently localized | `to_rdkit_mol`, `to_smiles` | `test_rdkit_projection.py` |
-| Optional S1/S5 visualization; full explicit-H graph, group-13–17 residual valence dots, atom-local q signs, and one generic density-aware 2D layout with zero crossings for planar graphs | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
+| Optional S1/S5 visualization; full explicit-H graph, group-13–17 residual valence dots, atom-local q signs, and one generic ring-aware 2D layout (crossings weakly penalized even for planar graphs) and vector minus signs | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
 | S5 all 55 executed notebooks, 84 explicit W(D) words, full Form-specific D and M consistency, and 168 authentic SVG outputs | `examples/s5/data/manifest.json`, `examples/s5/data/s5_records.json.xz`, `ElectronAllocation.to_word(order=...)`, `Word.replay()` | `tests/test_s5_examples.py` |
 
 ## Reproducibility boundary
@@ -36,4 +36,17 @@ python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-During PR #4 development, `.github/workflows/tests.yml` runs one Python 3.11 representative smoke suite on push, including eight real-kernel notebooks. The complete Python 3.10/3.11/3.12 matrix and regeneration of all 55 authentic executed notebooks are separate **manual final-review** workflows. Earlier successful runs must never be presented as proof of the latest HEAD or the unrefreshed notebook outputs.
+The development branch uses lightweight Python 3.11 smoke tests (nine real
+representative Jupyter notebooks). The `main` branch and non-Draft PRs
+retain the full Python 3.10/3.11/3.12 S1–S4 core matrix and a complete
+Python 3.11 regression suite. A `[full-validation]` commit or manual
+`workflow_dispatch` can request the full matrix before merge.
+
+The 55 actual executed notebooks and 168 SVGs were regenerated using the
+ring-aware layout and vector-minus rendering in
+[run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509);
+494 tests passed before and after saving their real outputs.
+`.github/workflows/execute_s5_notebooks.yml` provides optional **manual,
+read-only** regeneration and artifact export without auto-committing to any
+branch. CI verifies fixed S5 fixtures and source hashes, not a fresh audit
+of external PDF/DOCX files or every possible CCS object.

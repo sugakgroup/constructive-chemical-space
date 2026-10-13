@@ -1,5 +1,0 @@
-Full-corpus real Jupyter regeneration, October 13 2026.
-Implementation HEAD: 0eb5f51ec4a2d596b0a09c7c63b6bda96eac0728.
-Render negative CCS assignment imbalance as SVG vector line strokes (no U+2212 glyph or &#8722; in SVG output).
-Regenerate all 55 Notebook execution counts and 168 genuine kernel SVG outputs, run full tests, commit the verified output to PR #4 only.
-Preserve all CCS construction/constitution/electron-allocation semantics, no merge or Python matrix.

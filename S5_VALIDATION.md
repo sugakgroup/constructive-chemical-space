@@ -75,10 +75,13 @@ the complete word tokens against the original SI fixture and validates
 the constructed objects. The diagrams display **these replay-generated
 objects**, not the reference fixture forms.
 
-The actual notebook outputs **are committed**. They were produced by
-[GitHub Actions run 38362379662](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38362379662),
-which executed all 55 notebooks through real Jupyter ipykernels via
-`nbclient.NotebookClient.execute()`, with six executed code cells per Notebook.
+The actual notebook outputs **are committed**. The latest
+[GitHub Actions run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509)
+regenerated all 55 notebooks after adopting the ring-aware layout and vector
+negative-charge signs. The notebooks ran through real Jupyter ipykernels via
+`nbclient.NotebookClient.execute()` (six code cells per Notebook). The
+resulting genuine outputs were committed as
+[5ef1bfb](https://github.com/sugakgroup/constructive-chemical-space/commit/5ef1bfb6278331c248d109155472e4a9109f1968).
 Each Form A/B/C/D has its own complete, literal construction Word, Replay,
 ElectronAllocation and Constitution. Its Constitution is compared with Form A
 and the SI source under the complete explicit-index bijection, then **both
@@ -119,32 +122,38 @@ is stored in `examples/s5/data/manifest.json` and independently checked
 by CI. The correction script is idempotent and checks the old values before
 editing, rather than silently rewriting other source fields.
 
-## Display scope: 2D crossing and residual electrons
+## Display scope: ring-aware 2D drawing and electron annotations
 
-The notebook uses an explicitly H-complete 2D CCS direct-connection graph.
-NetworkX planarity testing identifies 51 planar S5 records (crossing-free
-straight-line rendering is required) and four **nonplanar** cases
-(21 Lu2(Pc)3, 42 [Ni@Pb12]2−, 43 K-cryptand/electron, 44 Na-cryptand/Na
-electride), for which at least one crossing is mathematically unavoidable.
-No 3D structure is asserted. The 13–17 group residual valence electron dots
-and assignment-imbalance signs are derived annotations, not intrinsic CCS
-identity or claims of measured electronic structure.
+Every notebook depicts the CCS direct-connection graph with **all H nuclei
+explicitly represented**. NetworkX classifies 51 S5 graphs as planar and
+four (records 21, 42, 43 and 44) as mathematically nonplanar. Planarity is
+a graph property; **a planar graph is not required to be drawn without
+straight-line crossings**. The generic RDKit/CoordGen candidate score
+prioritizes recognizable short rings and projected cages, reasonable
+connection lengths, ring-centered vertices incident to an entire ring,
+and nonbonded separation. Crossings have only a weak penalty. High-degree
+graphs can use a temporary, degree-weakened CoordGen coordinate candidate,
+without altering visible connections or the CCS form. A seeded spring
+fallback is used only if both principal coordinate methods fail. No
+element-, complex- or named-molecule-specific branch and no physical
+3D geometry are introduced.
 
-## Latest simplification: degree-based graphic spacing
+Group-13–17 residual valence-electron dots are drawn as actual SVG
+`circle` primitives. Negative assignment-imbalance signs are constructed
+from SVG `line` strokes, not Unicode U+2212 or an XML numeric entity
+that IPython may decode to a raw UTF-8 minus in persisted notebook output.
+Independent scanning of **all 168 genuine SVG outputs** in the latest
+corpus confirmed 146 negative-charge annotations accompanied by 146 vector
+minus strokes; no raw U+2212, numeric minus entity or visibly escaped
+UTF-8 minus-byte sequence remained. Atomic `q_v = Z_v - n_v` and
+electron-allocation endpoint counts are annotations, not Lewis formal
+charges, physical electronic structure or constitutional identity fields.
 
-PR #4 subsequently removed all chemistry-specific arrangements for
-ferrocene, sandwich complexes, metal-containing clusters and cryptands.
-Only generic direct-connection graph properties drive layout selection:
-planarity, number of line intersections, nuclear proximity, and
-connection-distance outliers. Crowded notebooks enlarge the actual
-drawing canvas using the graph's maximum degree, because merely scaling
-raw 2D coordinates would be canceled by RDKit's auto-fit.
-
-The latest generic representative Jupyter run is
-[38373858558](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38373858558):
-47 selected tests passed and eight real kernels produced 22 preview SVGs,
-including S5 ferrocene, Lu2Pc3 and cryptands. These uncommitted preview
-outputs are separate from the earlier genuine full-corpus
-[38362379662](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38362379662).
-The final 55-notebook execution must be rerun only after approval. No
-kernel output has been manufactured.
+The latest full reproduction is
+[run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509):
+**55 notebooks, 84 forms, 168 actual SVG outputs**, with **494 tests
+passing twice** (before and after committing the outputs). The complete
+Python 3.10–3.12 core matrix is separately supported in
+`.github/workflows/tests.yml`; a future manual real-kernel replay
+can be launched through the read-only
+`.github/workflows/execute_s5_notebooks.yml` workflow.

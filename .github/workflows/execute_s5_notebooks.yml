@@ -1,56 +1,43 @@
-name: Real Jupyter S5 notebook regeneration (FINAL ONLY)
+name: S5 full real-kernel reproducibility (manual only)
 
 on:
-  push:
-    branches: [feature/s5-records-validation]
-    paths:
-      - examples/s5/.run_full_corpus
   workflow_dispatch:
 
+# Running notebooks never pushes or changes the canonical repository branch.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: s5-final-real-kernel-run
+  group: s5-manual-reproducibility
   cancel-in-progress: false
 
 jobs:
   execute-all-notebooks:
-    if: github.repository == 'sugakgroup/constructive-chemical-space' && github.ref == 'refs/heads/feature/s5-records-validation'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: feature/s5-records-validation
-          persist-credentials: true
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install CCS and actual Jupyter execution dependencies
+      - name: Install CCS and real Jupyter execution dependencies
         run: |
           python -m pip install -e ".[dev]"
           python -m pip install "nbclient>=0.10" "nbformat>=5.10" "ipykernel>=6"
-      - name: Check author-confirmed S5 record correction
+      - name: Verify the author-confirmed Record 13 correction
         run: python examples/s5/correct_record13.py
-      - name: Generate SOURCE-ONLY literal words; never synthesize outputs
+      - name: Generate source-only literal Words, never simulate outputs
         run: python examples/s5/generate_explicit_words.py
-      - name: Execute all 55 SI notebooks in real ipykernels
+      - name: Execute all 55 S5 notebooks with actual ipykernels
         run: python examples/s5/execute_notebooks.py
-      - name: Validate all authentic notebook outputs
+      - name: Test all saved S5 output and visualization invariants
         run: python -m pytest -q tests/test_s5_examples.py tests/test_visualization.py
-      - name: Commit only actual kernel results and their provenance
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add examples/s5/data/manifest.json examples/s5/data/s5_records.json.xz
-          git add examples/s5/notebooks/*.ipynb examples/s5/execution_report.json
-          if git diff --cached --quiet; then
-            echo "No new genuine kernel output; refusing to publish." >&2
-            exit 1
-          fi
-          git commit -m "docs(s5): commit genuine full-corpus kernel outputs"
-          git fetch origin feature/s5-records-validation
-          git rebase origin/feature/s5-records-validation
-          python -m pytest -q tests/test_s5_examples.py tests/test_visualization.py
-          git push origin HEAD:feature/s5-records-validation
+      - name: Archive genuine executed notebooks and provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: s5-real-kernel-full-${{ github.run_id }}
+          retention-days: 5
+          if-no-files-found: error
+          path: |
+            examples/s5/notebooks/*.ipynb
+            examples/s5/execution_report.json
