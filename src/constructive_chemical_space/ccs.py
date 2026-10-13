@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
-from math import ceil, hypot
+from math import ceil, hypot, cos, sin, pi
 from pathlib import Path
 import re
 from types import MappingProxyType
@@ -1942,10 +1942,14 @@ def _build_ccs_visual_mol(
             atom.SetIntProp("_CCSAssignmentImbalance", q_v)
             atom.SetIntProp("_CCSAssignedElectrons", n_v)
             atom.SetIntProp("_CCSResidualElectrons", r_v)
+            # This valence-electron dot count is an S1 allocation diagnostic,
+            # not a claim about spin, lone-pair pairing or orbital occupancy.
+            # It intentionally excludes H and elements outside groups 13–17.
+            if _in_completion_domain(nucleus.identity):
+                valence_remainder = r_v - _core_count(nucleus.identity)
+                atom.SetIntProp("_CCSResidualValenceElectrons", valence_remainder)
             if diagnostics:
                 note.append(f"n={n_v} r={r_v} q={q_v:+d}")
-            elif q_v:
-                note.append(f"q={q_v:+d}")
         if note:
             atom.SetProp("atomNote", "  ".join(note))
         indices[nucleus] = rw.AddAtom(atom)
@@ -2069,6 +2073,212 @@ def _ccs_endpoint_annotation_positions(drawer, mol):
             ))
     return annotations
 
+
+def _ccs_segment_intersections(mol) -> int:
+    """Count straight-connection conflicts in the temporary 2D depiction.
+
+    Connected edges may meet at their shared nucleus; unrelated segments
+    cannot cross, coincide, or pass through an unrelated nucleus.
+    """
+    if mol.GetNumAtoms() < 3 or mol.GetNumBonds() == 0:
+        return 0
+    conf = mol.GetConformer()
+    pts = [conf.GetAtomPosition(i) for i in range(mol.GetNumAtoms())]
+    segments = [
+        (b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in mol.GetBonds()
+    ]
+
+    def orient(p, q, r):
+        return (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)
+
+    def hit(p, q, r):
+        length = hypot(q.x - p.x, q.y - p.y)
+        if length < 1e-10:
+            return hypot(r.x - p.x, r.y - p.y) < 1e-7
+        if abs(orient(p, q, r)) > 1e-7 * length:
+            return False
+        dot = ((r.x - p.x) * (q.x - p.x)
+               + (r.y - p.y) * (q.y - p.y)) / (length * length)
+        return 1e-6 < dot < 1 - 1e-6
+
+    conflicts = 0
+    for k, (a, b) in enumerate(segments):
+        p, q = pts[a], pts[b]
+        for c, d in segments[k + 1:]:
+            if len({a, b, c, d}) < 4:
+                continue
+            r, t = pts[c], pts[d]
+            o1, o2 = orient(p, q, r), orient(p, q, t)
+            o3, o4 = orient(r, t, p), orient(r, t, q)
+            crossing = (o1 * o2 < -1e-12 and o3 * o4 < -1e-12)
+            touching = (hit(p, q, r) or hit(p, q, t)
+                        or hit(r, t, p) or hit(r, t, q))
+            if crossing or touching:
+                conflicts += 1
+        # An edge passing through an unconnected atom is also ambiguous.
+        for i, other in enumerate(pts):
+            if i not in (a, b) and hit(p, q, other):
+                conflicts += 1
+    return conflicts
+
+
+def _ccs_layout_2d(mol, layout: str) -> None:
+    """Prefer legible CoordGen geometry; enforce no crossings when planar.
+
+    By Fáry's theorem a planar simple graph admits a crossing-free
+    straight-line embedding. A non-planar graph cannot meet that requirement
+    in 2D, and is labelled explicitly rather than silently misrepresented.
+    """
+    from rdkit.Chem import rdDepictor
+    try:
+        import networkx as nx
+    except ImportError as exc:
+        raise CCSVisualizationError(
+            "Crossing-aware 2D depiction requires networkx; "
+            "install the CCS visualization extra"
+        ) from exc
+
+    graph = nx.Graph()
+    graph.add_nodes_from(range(mol.GetNumAtoms()))
+    graph.add_edges_from(
+        (edge.GetBeginAtomIdx(), edge.GetEndAtomIdx())
+        for edge in mol.GetBonds()
+    )
+    planar, _ = nx.check_planarity(graph)
+    mol.SetBoolProp("_CCSPlanarGraph", bool(planar))
+    use_coordgen = (
+        layout == "coordgen" or
+        (layout == "auto" and mol.GetNumAtoms() >= 8
+         and mol.GetNumBonds() >= 6)
+    )
+    done = False
+    if use_coordgen:
+        try:
+            from rdkit.Chem import rdCoordGen
+            rdCoordGen.AddCoords(mol)
+            done = mol.GetNumAtoms() == 0 or mol.GetNumConformers() > 0
+        except (ImportError, RuntimeError, ValueError) as exc:
+            if layout == "coordgen":
+                raise CCSVisualizationError(
+                    "CoordGen could not arrange the supplied CCS graph"
+                ) from exc
+    if not done:
+        rdDepictor.Compute2DCoords(mol)
+
+    crossing_count = _ccs_segment_intersections(mol)
+    if planar and crossing_count > 0:
+        # networkx's planar embedding uses straight segments with no
+        # unrelated edge crossings, unlike an unconstrained molecule sketch.
+        try:
+            xy = nx.planar_layout(graph)
+            if mol.GetNumAtoms() > 0:
+                conf = mol.GetConformer()
+                for i in range(mol.GetNumAtoms()):
+                    p = xy[i]
+                    conf.SetAtomPosition(i, (float(p[0]), float(p[1]), 0.0))
+            crossing_count = _ccs_segment_intersections(mol)
+        except Exception as exc:
+            raise CCSVisualizationError(
+                "A planar graph could not be laid out without crossing"
+            ) from exc
+        if crossing_count:
+            raise CCSVisualizationError(
+                f"Planar graph still contains {crossing_count} "
+                "unrelated line crossings in 2D"
+            )
+    mol.SetIntProp("_CCS2DCrossings", crossing_count)
+    mol.SetBoolProp("_CCSNonPlanar2D", not planar)
+
+
+def _ccs_nuclear_annotation_positions(drawer, mol, endpoint_annotations):
+    """Layout auxiliary q signs and residual valence dots near each nucleus.
+
+    Uses the same temporary RDKit atom addresses as endpoint labels.
+    No atom charge or radical is assigned to RDKit's chemistry fields.
+    """
+    centers = [
+        (drawer.GetDrawCoords(i).x, drawer.GetDrawCoords(i).y)
+        for i in range(mol.GetNumAtoms())
+    ]
+    segments = [
+        (bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
+        for bond in mol.GetBonds()
+    ]
+    occupied = [
+        (x, y, 11.0 + len(str(value)) * 2.0)
+        for _, _, value, x, y in endpoint_annotations
+    ]
+    labels = []
+    width, height = float(drawer.Width()), float(drawer.Height())
+
+    def segment_distance(x, y, a, b):
+        ax, ay = centers[a]
+        bx, by = centers[b]
+        dx, dy = bx - ax, by - ay
+        divisor = dx * dx + dy * dy
+        if divisor < 1e-10:
+            return hypot(x - ax, y - ay)
+        t = min(1.0, max(0.0, ((x - ax) * dx + (y - ay) * dy) / divisor))
+        return hypot(x - (ax + t * dx), y - (ay + t * dy))
+
+    for atom in mol.GetAtoms():
+        if not atom.HasProp("_CCSAssignedElectrons"):
+            continue
+        idx = atom.GetIdx()
+        q_value = atom.GetIntProp("_CCSAssignmentImbalance")
+        remaining = (atom.GetIntProp("_CCSResidualValenceElectrons")
+                     if atom.HasProp("_CCSResidualValenceElectrons") else None)
+        items = []
+        if q_value:
+            sign = "+" if q_value > 0 else "\u2212"
+            glyph = (str(abs(q_value)) if abs(q_value) > 1 else "") + sign
+            items.append(("charge", glyph, q_value))
+        if remaining is not None and remaining > 0:
+            if remaining <= 8:
+                count = remaining
+                while count:
+                    n = min(2, count)
+                    items.append(("residual", "\u2022" * n, n))
+                    count -= n
+            else:
+                items.append(("residual_overflow", f"r={remaining}", remaining))
+        if not items:
+            continue
+        cx, cy = centers[idx]
+        for kind, glyph, count in items:
+            candidates = []
+            # Prefer the outside of the existing bond fan, while considering
+            # the same locations already used for endpoint electron labels.
+            for radius in (22.0, 31.0, 43.0, 56.0):
+                for angle_index in range(16):
+                    theta = pi * angle_index / 8.0
+                    x = cx + radius * cos(theta)
+                    y = cy + radius * sin(theta)
+                    score = 0.16 * radius + 0.25 * angle_index
+                    if not (12.0 < x < width - 12.0
+                            and 12.0 < y < height - 12.0):
+                        score += 1e6
+                    for j, (ax, ay) in enumerate(centers):
+                        threshold = 20.0 if j != idx else 16.0
+                        gap = hypot(x - ax, y - ay)
+                        if gap < threshold:
+                            score += 80.0 * (threshold - gap + 1.0)
+                    for a, b in segments:
+                        distance = segment_distance(x, y, a, b)
+                        if distance < 11.0:
+                            score += 70.0 * (12.0 - distance)
+                    radius_text = 8.0 + len(glyph) * 3.5
+                    for ox, oy, ore in occupied:
+                        gap = hypot(x - ox, y - oy)
+                        if gap < radius_text + ore:
+                            score += 120.0 * (radius_text + ore - gap + 1.0)
+                    candidates.append((score, x, y))
+            _, x, y = min(candidates)
+            labels.append((idx, kind, glyph, count, x, y))
+            occupied.append((x, y, 8.0 + len(glyph) * 3.5))
+    return labels
+
+
 def _ccs_footer(source, source_kind: str, *,
                 show_total_charge: bool, show_hydrogens: bool) -> list[str]:
     lines = [f"N_e = {source.num_electrons}"]
@@ -2110,28 +2320,9 @@ def _ccs_render_options(
         diagnostics=diagnostics, label_all_allocations=label_all_allocations,
         allocation_label_mode=allocation_label_mode,
     )
-    from rdkit.Chem import rdDepictor
-    # CoordGen is especially helpful for fused rings and macrocycles.
-    # Use per-molecule coordinates only; never mutate RDKit global settings.
+    # Enforce the planarity constraint independently of RDKit bond styles.
     mol.UpdatePropertyCache(strict=False)
-    use_coordgen = (
-        layout == "coordgen" or
-        (layout == "auto" and mol.GetNumAtoms() >= 8
-         and mol.GetNumBonds() >= 6)
-    )
-    completed = False
-    if use_coordgen:
-        try:
-            from rdkit.Chem import rdCoordGen
-            rdCoordGen.AddCoords(mol)
-            completed = mol.GetNumAtoms() == 0 or mol.GetNumConformers() > 0
-        except (ImportError, RuntimeError, ValueError) as exc:
-            if layout == "coordgen":
-                raise CCSVisualizationError(
-                    "CoordGen could not arrange the supplied CCS graph"
-                ) from exc
-    if not completed:
-        rdDepictor.Compute2DCoords(mol)
+    _ccs_layout_2d(mol, layout)
     if bond_length_scale != 1 and mol.GetNumAtoms():
         conf = mol.GetConformer()
         for index in range(mol.GetNumAtoms()):
@@ -2143,6 +2334,8 @@ def _ccs_render_options(
         source, kind, show_total_charge=show_total_charge,
         show_hydrogens=show_hydrogens,
     )
+    if mol.GetBoolProp("_CCSNonPlanar2D"):
+        footer.append("Non-planar graph: crossings unavoidable in 2D")
     footer_height = max(40, 8 + len(footer) * (footer_font_size + 3))
     drawing_height = height - footer_height
     if drawing_height < 80:
@@ -2178,6 +2371,9 @@ def _render_ccs_svg(
     opts.padding = 0.05
     drawer.DrawMolecule(mol)
     endpoint_annotations = _ccs_endpoint_annotation_positions(drawer, mol)
+    nuclear_annotations = _ccs_nuclear_annotation_positions(
+        drawer, mol, endpoint_annotations
+    )
     drawer.FinishDrawing()
     svg = drawer.GetDrawingText()
 
@@ -2195,6 +2391,19 @@ def _render_ccs_svg(
             f"{electrons}</text>"
         )
     endpoint_glyphs.append("</g>")
+    nuclear_glyphs = ["<g class='ccs-nuclear-annotations'>"]
+    for atom_index, kind, glyph, count, x, y in nuclear_annotations:
+        nuclear_glyphs.append(
+            f"<text class='ccs-nuclear-annotation' "
+            f"data-atom='{atom_index}' data-kind='{kind}' "
+            f"data-count='{count}' x='{x:.2f}' y='{y + 4.3:.2f}' "
+            "text-anchor='middle' font-family='sans-serif' "
+            "font-size='16px' fill='#222222' stroke='white' "
+            "stroke-width='3px' stroke-linejoin='round' "
+            "paint-order='stroke fill'>"
+            f"{html.escape(glyph)}</text>"
+        )
+    nuclear_glyphs.append("</g>")
 
     # Extend the RDKit canvas with a separate full-system metadata footer.
     svg, count_height = re.subn(
@@ -2236,7 +2445,8 @@ def _render_ccs_svg(
         )
     return svg.replace(
         "</svg>",
-        "\n" + "\n".join(endpoint_glyphs + fragments) + "\n</svg>",
+        "\n" + "\n".join(endpoint_glyphs + nuclear_glyphs + fragments)
+        + "\n</svg>",
     )
 
 
@@ -2274,6 +2484,9 @@ def _render_ccs_png(
     opts.padding = 0.05
     drawer.DrawMolecule(mol)
     endpoint_annotations = _ccs_endpoint_annotation_positions(drawer, mol)
+    nuclear_annotations = _ccs_nuclear_annotation_positions(
+        drawer, mol, endpoint_annotations
+    )
     drawer.FinishDrawing()
     canvas = Image.new("RGB", (width, height), "white")
     with Image.open(BytesIO(drawer.GetDrawingText())) as body:
@@ -2296,6 +2509,22 @@ def _render_ccs_png(
         text_draw.text(
             (left - bounds[0], top - bounds[1]), number,
             fill="#405bbb", font=endpoint_font,
+        )
+    try:
+        nuclear_font = ImageFont.truetype("DejaVuSans.ttf", 16)
+    except OSError:
+        nuclear_font = ImageFont.load_default()
+    for atom_index, kind, glyph, count, x, y in nuclear_annotations:
+        box = text_draw.textbbox((0, 0), glyph, font=nuclear_font)
+        tw, th = box[2] - box[0], box[3] - box[1]
+        left, top = x - tw / 2, y - th / 2
+        text_draw.rectangle(
+            (left - 2, top - 2, left + tw + 2, top + th + 2),
+            fill="white",
+        )
+        text_draw.text(
+            (left - box[0], top - box[1]), glyph, fill="#222222",
+            font=nuclear_font,
         )
     try:
         font = ImageFont.truetype("DejaVuSans.ttf", font_size)
