@@ -95,8 +95,20 @@ def main() -> int:
         nb = nbformat.read(path, as_version=4)
         if nb.metadata.get("ccs_s5_record") != entry["number"]:
             raise RuntimeError(f"Wrong S5 record metadata in {path}")
-        if len([c for c in nb.cells if c.cell_type == "code"]) != 4:
+        if len([c for c in nb.cells if c.cell_type == "code"]) != 6:
             raise RuntimeError(f"Unexpected code-cell count in {path}")
+
+        # Verify that full, literal Word declarations exist in notebook source;
+        # an indirect form.to_word() call is not an explicit Word definition.
+        code_sources = ["".join(c.source) for c in nb.cells
+                        if c.cell_type == "code"]
+        for label in entry["forms"]:
+            if f"word_{label} = Word([" not in code_sources[1]:
+                raise RuntimeError(
+                    f"Missing literal construction word for Form {label}: {path}"
+                )
+        if ".replay_state()" not in code_sources[2] or ".to_constitution()" not in code_sources[2]:
+            raise RuntimeError(f"Missing explicit Replay-to-Constitution step in {path}")
 
         source_digest = code_digest(nb)
         # NotebookClient will clear old outputs and populate the real outputs
