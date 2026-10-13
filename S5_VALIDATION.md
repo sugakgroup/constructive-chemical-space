@@ -72,5 +72,6 @@ Notebook figures are computed on demand through
 explicit-H graph is the default. Notebook outputs are not committed, and
 generated images go to ignored `examples/s5/outputs/` only when requested.
 CI checks every Notebook file's structure, correspondence to the manifest,
-all 84 Form witnesses and selected notebook code execution without display.
-The original SI PDF/DOCX are still not re-extracted in CI.
+all 84 Form witnesses, selected notebook loading/replay cells executed as Python,
+and **SVG rendering of all 55 constitutions and all 84 allocation forms** with
+explicit H retained. The original SI PDF/DOCX are not re-extracted in CI.
