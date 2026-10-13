@@ -187,3 +187,13 @@ examples). Their kernel outputs are intentionally ephemeral and are never
 committed or called the complete validation. The **full 55-notebook execution
 and saved-output refresh** and the full version matrix run only by manually
 dispatching the corresponding GitHub Actions workflows at final review.
+
+### Viewing cluster changes before the final full-corpus run
+
+Representative smoke is also available as a short-lived GitHub Actions
+artifact (`s5-smoke-clusters-<run id>`) containing actual-kernel SVG
+constitution and allocation diagrams for eight selected S5 records,
+including the 4 difficult coordination and cluster examples. The artifact
+is not merged into the notebooks, expires after five days, and is **not**
+claimed to replace the final 55-notebook execution and provenance report.
+The all-record notebook regeneration remains a manual final-review action.

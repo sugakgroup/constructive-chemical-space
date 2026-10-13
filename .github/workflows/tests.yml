@@ -51,6 +51,8 @@ jobs:
             tests/test_visualization.py::test_assignment_imbalance_signs_and_valence_dots \
             tests/test_visualization.py::test_2d_planar_K4_has_zero_straight_line_crossings \
             tests/test_visualization.py::test_nonplanar_K5_is_detected_and_accurately_warned \
+            tests/test_visualization.py::test_cluster_schematics_spread_dense_metal_incidence \
+            tests/test_visualization.py::test_residual_dots_are_svg_vector_circles_not_utf8_text \
             tests/test_s5_examples.py::test_record13_bisperiazulene_author_corrected_formB_C \
             'tests/test_s5_examples.py::test_all_literal_notebook_words_replay_into_full_ccs_objects[13]' \
             'tests/test_s5_examples.py::test_all_literal_notebook_words_replay_into_full_ccs_objects[36]' \
@@ -58,8 +60,19 @@ jobs:
       - name: Real ipykernel smoke — eight representative SI examples, not 55
         run: |
           python examples/s5/generate_explicit_words.py
-          python examples/s5/execute_notebooks.py --records 2 13 18 21 42 43 44 46
-          echo "Smoke outputs are ephemeral and are never committed as full-corpus results."
+          python examples/s5/execute_notebooks.py \
+            --records 2 13 18 21 42 43 44 46 \
+            --preview-dir examples/s5/smoke_preview
+          echo "Preview SVGs are genuine kernel outputs. No full-corpus result is committed."
+      - name: Save ephemeral, real-kernel S5 cluster previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: s5-smoke-clusters-${{ github.run_id }}
+          retention-days: 5
+          if-no-files-found: error
+          path: |
+            examples/s5/smoke_preview/*.svg
+            examples/s5/smoke_execution_report.json
 
   final-full-suite:
     if: github.event_name == 'workflow_dispatch' && inputs.scope == 'full'

@@ -76,6 +76,11 @@ def main(argv=None) -> int:
              "not overwrite the authoritative 55-notebook execution report.",
     )
     parser.add_argument("--report-path", type=Path, default=None)
+    parser.add_argument(
+        "--preview-dir", type=Path, default=None,
+        help="Export SVG files copied byte-for-byte from REAL kernel display "
+             "outputs; never generate or simulate notebook outputs.",
+    )
     args = parser.parse_args(argv)
 
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -178,8 +183,24 @@ def main(argv=None) -> int:
                 f"received {len(svg_payloads)}"
             )
 
+        if args.preview_dir is not None:
+            # Each SVG originates in NotebookClient.execute()'s genuine
+            # display_data payload. This writes a preview derivative only:
+            # it NEVER creates or alters Jupyter execution results.
+            preview = args.preview_dir
+            preview.mkdir(parents=True, exist_ok=True)
+            label_stem = path.stem
+            labels = [f"Constitution_{c}" for c in entry["forms"]]
+            labels += [f"Allocation_{c}" for c in entry["forms"]]
+            if len(labels) != len(svg_payloads):
+                raise RuntimeError("Preview and kernel output counts differ")
+            for label, svg in zip(labels, svg_payloads):
+                (preview / f"{label_stem}_{label}.svg").write_text(
+                    svg, encoding="utf-8"
+                )
+
         output_hash = sha256("\n".join(svg_payloads).encode("utf-8"))
-        finished_at = datetime.now(timezone.utc)
+        finished_at = datetime.now(timezone.utc
         executed.metadata["ccs_execution"] = {
             "status": "completed",
             "method": "nbclient real ipykernel execution",
