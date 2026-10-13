@@ -91,3 +91,90 @@ def test_gly_macro_matches_s4_5_one_residue_completion():
         "O": 2,
     }
     assert m.num_electrons == 40
+
+def test_gly_macro_multiresidue_compositions_follow_s4_5():
+    gly = Macro(
+        "Gly",
+        body=[
+            Nuc("N"), Con(-2, -1, 1, 1),
+            Nuc("C"), Con(-2, -1, 1, 1),
+            Nuc("O"), Nuc("C"),
+            Con(-3, -1, 1, 1), Con(-2, -1, 2, 2),
+        ],
+    )
+    for r in (2, 3, 4):
+        p = PracticalWord(
+            [gly() for _ in range(r)] +
+            [Nuc("O"), Con(-2, -1, 1, 1), End()]
+        )
+        m = p.to_constitution()
+        assert {x: element_count(m, x) for x in ("C", "H", "N", "O")} == {
+            "C": 2 * r, "H": 3 * r + 2, "N": r, "O": r + 1,
+        }
+        assert m.num_electrons == 30 * r + 10
+
+
+def test_completion_domain_boundaries_and_isotopes():
+    # Group 12 and 18 are excluded; 13-17 are eligible; H is excluded.
+    for symbol, expected in {
+        "Mg": 0, "B": 3, "C": 4, "N": 3,
+        "O": 2, "F": 1, "Ne": 0, "H": 0,
+    }.items():
+        assert PracticalWord([Nuc(symbol), End()]).completion_counts() == (expected,)
+    p = PracticalWord([Nuc("13C"), End()])
+    assert p.completion_counts() == (4,)
+    assert element_count(p.to_constitution(), "H") == 4
+
+
+def test_end_eligibility_b_u_and_e_boundaries():
+    # For C, c=2. b=0 and b=8 are eligible; -1 and 9 are not.
+    for n, eligible in ((1, False), (2, True), (10, True), (11, False)):
+        info = PracticalWord([Nuc("C", n), End()]).completion_plan()[0]
+        assert info.eligible is eligible
+        if not eligible:
+            assert info.h == 0
+
+    assert PracticalWord([Nuc("C", 6, 4), End()]).completion_plan()[0].eligible
+    too_large_u = PracticalWord([Nuc("C", 6, 5), End()]).completion_plan()[0]
+    assert not too_large_u.eligible and too_large_u.h == 0
+
+    negative_e = PracticalWord([
+        Nuc("C", 6, 1), Nuc("H"), Con(0, 1, 4, 0), End(),
+    ]).completion_plan()[0]
+    assert negative_e.E == -1
+    assert not negative_e.eligible and negative_e.h == 0
+
+
+def test_macro_external_arguments_valid_and_invalid():
+    import pytest
+
+    attach = Macro(
+        "attach", num_args=1,
+        body=[Nuc("H"), MacroCon(Arg(0), -1, 1, 1)],
+    )
+    valid = PracticalWord([Nuc("O"), attach(0)]).to_constitution()
+    assert len(valid.nuclei) == 2 and len(valid.connections) == 1
+
+    out_of_range = PracticalWord([Nuc("O"), attach(1)]).to_constitution()
+    assert len(out_of_range.nuclei) == 1
+    assert len(out_of_range.connections) == 0
+
+    with pytest.raises(ValueError):
+        attach(-1)
+    with pytest.raises(ValueError):
+        attach("0")
+    with pytest.raises(ValueError):
+        attach()
+    with pytest.raises(ValueError):
+        attach.expand((-1,), 1)
+    with pytest.raises(ValueError):
+        Macro("invalid", num_args=1,
+              body=[Nuc("H"), MacroCon(Arg(1), -1, 1, 1)])
+    with pytest.raises(ValueError):
+        MacroCon(0, -1, 1, 1)
+
+
+def test_first_end_excludes_subsequent_macro_invocations_and_core_tokens():
+    gly = Macro("one", [Nuc("C")])
+    p = PracticalWord([Nuc("H"), End(), gly(), Nuc("O"), End()])
+    assert p.expand().tokens == (Nuc("H"),)
