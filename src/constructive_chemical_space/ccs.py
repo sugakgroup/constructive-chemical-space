@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from math import ceil
+from pathlib import Path
 import re
 from types import MappingProxyType
 import warnings
@@ -696,6 +697,22 @@ class Constitution:
 
     zero_allocation = all_unassigned_form
 
+    def show(self, **kwargs) -> None:
+        """Display an optional RDKit-rendered CCS view in IPython/Jupyter."""
+        _show_ccs(self, **kwargs)
+
+    def to_svg(self, **kwargs) -> str:
+        """Return the rendered CCS view as an SVG string (requires RDKit)."""
+        return _render_ccs_svg(self, **kwargs)
+
+    def to_png(self, **kwargs) -> bytes:
+        """Return PNG bytes with the CCS electron-count footer."""
+        return _render_ccs_png(self, **kwargs)
+
+    def save(self, path: str | Path, **kwargs) -> None:
+        """Export a CCS view to .svg or .png, selected by filename suffix."""
+        _save_ccs_visualization(self, path, **kwargs)
+
     def __repr__(self) -> str:
         counts = Counter(v.identity.label for v in self.nuclei)
         return (
@@ -940,6 +957,22 @@ class ElectronAllocation:
             ))
         tokens.extend(Con(i, j, ai, aj) for i, j, ai, aj in sorted(connections))
         return Word(tokens)
+
+    def show(self, **kwargs) -> None:
+        """Display an optional RDKit-rendered CCS view in IPython/Jupyter."""
+        _show_ccs(self, **kwargs)
+
+    def to_svg(self, **kwargs) -> str:
+        """Return the rendered CCS view as an SVG string (requires RDKit)."""
+        return _render_ccs_svg(self, **kwargs)
+
+    def to_png(self, **kwargs) -> bytes:
+        """Return PNG bytes with the CCS electron-count footer."""
+        return _render_ccs_png(self, **kwargs)
+
+    def save(self, path: str | Path, **kwargs) -> None:
+        """Export a CCS view to .svg or .png, selected by filename suffix."""
+        _save_ccs_visualization(self, path, **kwargs)
 
     def __repr__(self) -> str:
         counts = Counter(v.identity.label for v in self.nuclei)
@@ -1330,6 +1363,22 @@ class Word:
     def to_smiles(self, **kwargs) -> str | None:
         return self.replay().to_smiles(**kwargs)
 
+    def show(self, **kwargs) -> None:
+        """Display an optional RDKit-rendered CCS view in IPython/Jupyter."""
+        _show_ccs(self, **kwargs)
+
+    def to_svg(self, **kwargs) -> str:
+        """Return the rendered CCS view as an SVG string (requires RDKit)."""
+        return _render_ccs_svg(self, **kwargs)
+
+    def to_png(self, **kwargs) -> bytes:
+        """Return PNG bytes with the CCS electron-count footer."""
+        return _render_ccs_png(self, **kwargs)
+
+    def save(self, path: str | Path, **kwargs) -> None:
+        """Export a CCS view to .svg or .png, selected by filename suffix."""
+        _save_ccs_visualization(self, path, **kwargs)
+
     def __repr__(self) -> str:
         return "Word([" + ", ".join(repr(t) for t in self.tokens) + "])"
 
@@ -1666,6 +1715,22 @@ class PracticalWord:
             return self
         return PracticalWord(self.items + (End(),))
 
+    def show(self, **kwargs) -> None:
+        """Display an optional RDKit-rendered CCS view in IPython/Jupyter."""
+        _show_ccs(self, **kwargs)
+
+    def to_svg(self, **kwargs) -> str:
+        """Return the rendered CCS view as an SVG string (requires RDKit)."""
+        return _render_ccs_svg(self, **kwargs)
+
+    def to_png(self, **kwargs) -> bytes:
+        """Return PNG bytes with the CCS electron-count footer."""
+        return _render_ccs_png(self, **kwargs)
+
+    def save(self, path: str | Path, **kwargs) -> None:
+        """Export a CCS view to .svg or .png, selected by filename suffix."""
+        _save_ccs_visualization(self, path, **kwargs)
+
     def __repr__(self) -> str:
         return "PracticalWord([" + ", ".join(repr(x) for x in self.items) + "])"
 
@@ -1769,6 +1834,362 @@ class SearchProfile:
         return True
 
 
+
+# ---------------------------------------------------------------------------
+# Optional visualization and export, in this same implementation module.
+# No depiction field enters S1-S4 molecular identity or construction replay.
+# ---------------------------------------------------------------------------
+
+class CCSVisualizationError(RuntimeError):
+    """Optional CCS depiction could not be rendered."""
+
+
+def _visual_source(obj, *, view: str = "auto", order=None):
+    """Return an intrinsic source and a purely temporary display enumeration."""
+    if view not in {"auto", "constitution", "allocation"}:
+        raise ValueError("view must be 'auto', 'constitution', or 'allocation'")
+
+    if isinstance(obj, (Word, PracticalWord)):
+        state = (
+            obj.replay_state() if isinstance(obj, Word)
+            else obj.expand().replay_state()
+        )
+        source = state.form
+        default_order = state.address_table
+    elif isinstance(obj, ElectronAllocation):
+        source = obj
+        default_order = tuple(obj.nuclei)
+    elif isinstance(obj, Constitution):
+        source = obj
+        default_order = tuple(obj.nuclei)
+    else:
+        raise TypeError("visualization supports Constitution, ElectronAllocation, "
+                        "Word, and PracticalWord")
+
+    if order is None:
+        display_order = tuple(default_order)
+    else:
+        display_order = tuple(order)
+        if (len(display_order) != len(source.nuclei)
+                or set(display_order) != set(source.nuclei)):
+            raise ValueError("order must enumerate each nucleus of this object exactly once")
+
+    if isinstance(source, Constitution):
+        if view == "allocation":
+            raise TypeError("Constitution has no electron-allocation data")
+        return source, display_order, "constitution"
+    if view == "constitution":
+        return source.to_constitution(), display_order, "constitution"
+    return source, display_order, "allocation"
+
+
+def _ccs_visual_style(Chem, edge: AllocatedConnection):
+    """Purely illustrative RDKit stroke; never defines a CCS bond order."""
+    a, b = edge.allocation1, edge.allocation2
+    if (a, b) == (1, 1):
+        return Chem.BondType.SINGLE, None, None, True
+    if (a, b) == (2, 2):
+        return Chem.BondType.DOUBLE, None, None, True
+    if (a, b) == (3, 3):
+        return Chem.BondType.TRIPLE, None, None, True
+    if (a, b) == (2, 0):
+        return Chem.BondType.DATIVE, edge.endpoint1, edge.endpoint2, True
+    if (a, b) == (0, 2):
+        return Chem.BondType.DATIVE, edge.endpoint2, edge.endpoint1, True
+    return Chem.BondType.ZERO, None, None, False
+
+
+def _build_ccs_visual_mol(
+    source,
+    order: Sequence[Nucleus],
+    *,
+    source_kind: str,
+    show_hydrogens: bool,
+    show_indices: bool,
+    diagnostics: bool,
+    label_all_allocations: bool,
+):
+    """Build an unsanitized RDKit drawing model; never mutate the CCS source."""
+    Chem = _load_rdkit()
+    visible = tuple(
+        v for v in order if show_hydrogens or v.identity.symbol != "H"
+    )
+    visible_set = set(visible)
+    display_index = {v: i for i, v in enumerate(order)}
+    rw = Chem.RWMol()
+    indices = {}
+
+    for nucleus in visible:
+        atom = Chem.Atom(nucleus.identity.symbol)
+        atom.SetNoImplicit(True)
+        if nucleus.identity.isotope is not None:
+            atom.SetIsotope(nucleus.identity.isotope)
+        note = [f"#{display_index[nucleus]}"] if show_indices else []
+        if source_kind == "allocation":
+            # IMPORTANT: CCS q_v is the S1.4 auxiliary assignment imbalance,
+            # not RDKit/Lewis formal charge. Do not call SetFormalCharge(q_v).
+            q_v = source.assignment_imbalance(nucleus)
+            n_v = source.assigned_electrons(nucleus)
+            r_v = source.residual_electrons(nucleus)
+            atom.SetIntProp("_CCSAssignmentImbalance", q_v)
+            atom.SetIntProp("_CCSAssignedElectrons", n_v)
+            atom.SetIntProp("_CCSResidualElectrons", r_v)
+            if diagnostics:
+                note.append(f"n={n_v} r={r_v} q={q_v:+d}")
+            elif q_v:
+                note.append(f"q={q_v:+d}")
+        if note:
+            atom.SetProp("atomNote", "  ".join(note))
+        indices[nucleus] = rw.AddAtom(atom)
+
+    if source_kind == "constitution":
+        for edge in sorted(
+            source.connections,
+            key=lambda e: tuple(sorted((
+                display_index[e.endpoint1], display_index[e.endpoint2]
+            ))),
+        ):
+            if edge.endpoint1 in visible_set and edge.endpoint2 in visible_set:
+                # In this view, a plain stroke means direct CCS connection,
+                # not conventional bond order or electron sharing.
+                rw.AddBond(indices[edge.endpoint1], indices[edge.endpoint2],
+                           Chem.BondType.SINGLE)
+    else:
+        for edge in sorted(
+            source.allocated_connections,
+            key=lambda e: tuple(sorted((
+                display_index[e.endpoint1], display_index[e.endpoint2]
+            ))),
+        ):
+            if edge.endpoint1 not in visible_set or edge.endpoint2 not in visible_set:
+                continue
+            bond_type, donor, acceptor, conventional = _ccs_visual_style(Chem, edge)
+            begin = donor if donor is not None else edge.endpoint1
+            end = acceptor if acceptor is not None else edge.endpoint2
+            rw.AddBond(indices[begin], indices[end], bond_type)
+            bond = rw.GetBondBetweenAtoms(indices[begin], indices[end])
+            if bond is not None:
+                bond.SetIntProp("_CCSBeginAllocation", edge.allocation_for(begin))
+                bond.SetIntProp("_CCSEndAllocation", edge.allocation_for(end))
+                if label_all_allocations or not conventional:
+                    i, j = sorted((display_index[edge.endpoint1],
+                                   display_index[edge.endpoint2]))
+                    # Explicit endpoint indices make asymmetric allocations
+                    # unambiguous even when show_indices=False.
+                    bond.SetProp(
+                        "bondNote",
+                        f"{i}:{edge.allocation_for(order[i])}, "
+                        f"{j}:{edge.allocation_for(order[j])}",
+                    )
+                    if edge.allocation1 + edge.allocation2 == 1:
+                        bond.SetProp("_CCSOneElectron", "true")
+
+    mol = rw.GetMol()
+    mol.SetProp("_CCSView", source_kind)
+    mol.SetBoolProp("_CCSLossyHydrogenOmission",
+                    not show_hydrogens and any(v.identity.symbol == "H" for v in order))
+    return mol
+
+
+def _ccs_footer(source, source_kind: str, *,
+                show_total_charge: bool, show_hydrogens: bool) -> list[str]:
+    lines = [f"N_e = {source.num_electrons}"]
+    if show_total_charge:
+        constitution = (source if source_kind == "constitution"
+                        else source.to_constitution())
+        lines.append(f"Q = {constitution.total_charge:+d}")
+    if source_kind == "allocation" and source.num_unassigned_electrons:
+        lines.append(f"n_empty = {source.num_unassigned_electrons}")
+    if not show_hydrogens and any(v.identity.symbol == "H" for v in source.nuclei):
+        lines.append("H omitted - lossy view (not full CCS graph)")
+    return lines
+
+
+def _ccs_render_options(
+    obj, *, view="auto", order=None, show_hydrogens=True,
+    show_indices=False, diagnostics=False, label_all_allocations=False,
+    show_total_charge=False, width=1000, height=700,
+    bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
+):
+    if not (_is_int(width) and _is_int(height) and width >= 120 and height >= 150):
+        raise ValueError("width and height must be integers (at least 120 and 150)")
+    if not _is_int(footer_font_size) or footer_font_size <= 0:
+        raise ValueError("footer_font_size must be a positive integer")
+    if bond_length_scale <= 0 or annotation_scale <= 0:
+        raise ValueError("bond_length_scale and annotation_scale must be positive")
+    if not isinstance(show_hydrogens, bool):
+        raise TypeError("show_hydrogens must be a boolean; default is True")
+
+    source, display_order, kind = _visual_source(obj, view=view, order=order)
+    mol = _build_ccs_visual_mol(
+        source, display_order, source_kind=kind,
+        show_hydrogens=show_hydrogens, show_indices=show_indices,
+        diagnostics=diagnostics, label_all_allocations=label_all_allocations,
+    )
+    from rdkit.Chem import rdDepictor
+    # No process-global RDKit depiction settings are modified.
+    mol.UpdatePropertyCache(strict=False)
+    rdDepictor.Compute2DCoords(mol)
+    if bond_length_scale != 1 and mol.GetNumAtoms():
+        conf = mol.GetConformer()
+        for index in range(mol.GetNumAtoms()):
+            p = conf.GetAtomPosition(index)
+            conf.SetAtomPosition(
+                index, (p.x * bond_length_scale, p.y * bond_length_scale, 0.0)
+            )
+    footer = _ccs_footer(
+        source, kind, show_total_charge=show_total_charge,
+        show_hydrogens=show_hydrogens,
+    )
+    footer_height = max(40, 8 + len(footer) * (footer_font_size + 3))
+    drawing_height = height - footer_height
+    if drawing_height < 80:
+        raise ValueError("height is too small for the requested CCS footer")
+    return mol, footer, drawing_height, annotation_scale, footer_font_size
+
+
+def _render_ccs_svg(
+    obj, *, view="auto", order=None, show_hydrogens=True,
+    show_indices=False, diagnostics=False, label_all_allocations=False,
+    show_total_charge=False, width=1000, height=700,
+    bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
+) -> str:
+    """Export the full-graph CCS view as SVG; does not require IPython."""
+    from rdkit.Chem.Draw import rdMolDraw2D
+    import html
+
+    mol, footer, body_height, annotation_scale, font_size = _ccs_render_options(
+        obj, view=view, order=order, show_hydrogens=show_hydrogens,
+        show_indices=show_indices, diagnostics=diagnostics,
+        label_all_allocations=label_all_allocations,
+        show_total_charge=show_total_charge,
+        width=width, height=height, bond_length_scale=bond_length_scale,
+        annotation_scale=annotation_scale, footer_font_size=footer_font_size,
+    )
+    drawer = rdMolDraw2D.MolDraw2DSVG(width, body_height)
+    opts = drawer.drawOptions()
+    opts.annotationFontScale = annotation_scale
+    opts.bondLineWidth = 2.2
+    opts.additionalAtomLabelPadding = 0.12
+    opts.padding = 0.05
+    drawer.DrawMolecule(mol)
+    drawer.FinishDrawing()
+    svg = drawer.GetDrawingText()
+
+    # Extend the RDKit canvas with a separate full-system metadata footer.
+    svg, count_height = re.subn(
+        rf"height=['\"]{body_height}px['\"]",
+        f"height='{height}px'", svg, count=1,
+    )
+    svg, count_viewbox = re.subn(
+        rf"viewBox=['\"]0 0 {width} {body_height}['\"]",
+        f"viewBox='0 0 {width} {height}'", svg, count=1,
+    )
+    if count_height != 1 or count_viewbox != 1:
+        raise CCSVisualizationError("Could not extend RDKit SVG canvas")
+
+    y = body_height + font_size + 2
+    fragments = [
+        f"<rect x='0' y='{body_height}' width='{width}' "
+        f"height='{height - body_height}' fill='white'/>"
+    ]
+    for line in footer:
+        fragments.append(
+            f"<text x='{width - 14}' y='{y}' text-anchor='end' "
+            f"font-family='sans-serif' font-size='{font_size}px'>"
+            f"{html.escape(line)}</text>"
+        )
+        y += font_size + 3
+    # RDKit may convert annotation text to SVG paths. Preserve the exact
+    # S1.4 auxiliary values as machine-readable XML metadata as well.
+    source, ordered, kind = _visual_source(obj, view=view, order=order)
+    if kind == "allocation":
+        imbalance_entries = [
+            f"{i}:{v.identity.label}:q={source.assignment_imbalance(v):+d}"
+            for i, v in enumerate(ordered)
+        ]
+        fragments.insert(
+            0,
+            "<desc>CCS assignment imbalance (not Lewis formal charge): "
+            + html.escape("; ".join(imbalance_entries))
+            + "</desc>",
+        )
+    return svg.replace("</svg>", "\n" + "\n".join(fragments) + "\n</svg>")
+
+
+def _render_ccs_png(
+    obj, *, view="auto", order=None, show_hydrogens=True,
+    show_indices=False, diagnostics=False, label_all_allocations=False,
+    show_total_charge=False, width=1000, height=700,
+    bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
+) -> bytes:
+    """Export PNG with the same CCS metadata semantics (RDKit + Pillow)."""
+    from io import BytesIO
+    from rdkit.Chem.Draw import rdMolDraw2D
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError as exc:
+        raise CCSVisualizationError(
+            "Pillow is required for PNG export; install the visualization extra"
+        ) from exc
+
+    mol, footer, body_height, annotation_scale, font_size = _ccs_render_options(
+        obj, view=view, order=order, show_hydrogens=show_hydrogens,
+        show_indices=show_indices, diagnostics=diagnostics,
+        label_all_allocations=label_all_allocations,
+        show_total_charge=show_total_charge,
+        width=width, height=height, bond_length_scale=bond_length_scale,
+        annotation_scale=annotation_scale, footer_font_size=footer_font_size,
+    )
+    drawer = rdMolDraw2D.MolDraw2DCairo(width, body_height)
+    opts = drawer.drawOptions()
+    opts.annotationFontScale = annotation_scale
+    opts.bondLineWidth = 2.2
+    opts.additionalAtomLabelPadding = 0.12
+    opts.padding = 0.05
+    drawer.DrawMolecule(mol)
+    drawer.FinishDrawing()
+    canvas = Image.new("RGB", (width, height), "white")
+    with Image.open(BytesIO(drawer.GetDrawingText())) as body:
+        canvas.paste(body.convert("RGB"), (0, 0))
+    text_draw = ImageDraw.Draw(canvas)
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+    except OSError:
+        font = ImageFont.load_default()
+    y = body_height + 2
+    for line in footer:
+        bbox = text_draw.textbbox((0, 0), line, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_draw.text((width - 14 - text_width, y), line, fill="black", font=font)
+        y += font_size + 3
+    buffer = BytesIO()
+    canvas.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _show_ccs(obj, **kwargs) -> None:
+    """Display a CCS SVG in a notebook; rendering itself does not need IPython."""
+    try:
+        from IPython.display import SVG, display
+    except ImportError as exc:
+        raise CCSVisualizationError(
+            "IPython is required for show(); use to_svg()/save() without it"
+        ) from exc
+    display(SVG(data=_render_ccs_svg(obj, **kwargs)))
+
+
+def _save_ccs_visualization(obj, path: str | Path, **kwargs) -> None:
+    destination = Path(path)
+    suffix = destination.suffix.lower()
+    if suffix == ".svg":
+        destination.write_text(_render_ccs_svg(obj, **kwargs), encoding="utf-8")
+    elif suffix == ".png":
+        destination.write_bytes(_render_ccs_png(obj, **kwargs))
+    else:
+        raise ValueError("CCS visualization export requires .svg or .png filename")
+
+
 __all__ = [
     # S1
     "NuclearIdentity",
@@ -1779,6 +2200,7 @@ __all__ = [
     "Constitution",
     "ElectronAllocation",
     "RDKitConversionError",
+    "CCSVisualizationError",
     # S2
     "Nuc",
     "Ele",

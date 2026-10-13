@@ -9,6 +9,7 @@ from .ccs import (
     Arg,
     Con,
     Connection,
+    CCSVisualizationError,
     Constitution,
     Ele,
     ElectronAllocation,
@@ -46,4 +47,5 @@ __all__ = [
     "PracticalWord",
     "SearchProfile",
     "RDKitConversionError",
+    "CCSVisualizationError",
 ]

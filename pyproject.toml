@@ -16,8 +16,9 @@ dependencies = []
 
 [project.optional-dependencies]
 rdkit = ["rdkit>=2024.3"]
+visualization = ["rdkit>=2024.3", "ipython>=8", "Pillow>=10"]
 test = ["pytest>=8"]
-dev = ["pytest>=8", "rdkit>=2024.3"]
+dev = ["pytest>=8", "rdkit>=2024.3", "ipython>=8", "Pillow>=10"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

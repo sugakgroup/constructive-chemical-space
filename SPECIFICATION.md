@@ -87,6 +87,35 @@ The current bond-type heuristic is:
 
 Original CCS allocation data are retained as RDKit properties where possible. The initial RDKit atom formal-charge guess is taken from CCS `assignment_imbalance()` only as a non-normative conversion heuristic, not as a claim of conventional formal-charge equality. The independent CCS quantity is retained on each RDKit atom as `_CCSAssignmentImbalance`; the older `_CCSAuxCharge` property remains as a compatibility alias. Sanitization may retry with different toolkit formal charges. A nonzero `n_empty` is not silently assigned to a nucleus.
 
+## Optional visualization (single implementation module)
+
+Visualization is implemented in `src/constructive_chemical_space/ccs.py`,
+without a separate source module and without modifying the SI S1–S4 definition
+of Constitution, ElectronAllocation, construction words, or replay. The
+package initializer only reexports public names.
+
+The supported display and export methods for `Constitution`,
+`ElectronAllocation`, `Word`, and `PracticalWord` are:
+`show(**kwargs)` (IPython SVG display), `to_svg(**kwargs)` (SVG string),
+`to_png(**kwargs)` (PNG bytes), and `save(path, **kwargs)` (SVG or PNG).
+The optional exception `CCSVisualizationError` identifies failures of
+optional rendering/display dependencies.
+
+By default, every nucleus (including H) and every direct connection is drawn.
+`show_hydrogens=False` deliberately creates a lossy view and the exported
+figure warns that H was omitted. In constitution view a stroke represents an
+S1 direct connection only, without implying bond multiplicity.
+
+In allocation view, standard graphical strokes are used only as a
+non-normative aid for selected endpoint allocations. Otherwise each displayed
+allocation is annotated using both endpoint indices and individual counts.
+The S1.4 assignment imbalance is presented as `q_v`, never as a
+conventional RDKit/Lewis formal charge. The visualization input is immutable
+and does not acquire any display indices; caller-provided `order` is used
+only for reproducible depiction. Word-based displays use replay order by
+default. SVG generation requires RDKit, PNG requires RDKit and Pillow,
+and `show()` additionally requires IPython.
+
 ## Stable v1.0 top-level imports
 
 The supported top-level names are exactly those listed in `constructive_chemical_space.__all__`:
@@ -109,6 +138,7 @@ The supported top-level names are exactly those listed in `constructive_chemical
 - `PracticalWord`
 - `SearchProfile`
 - `RDKitConversionError`
+- `CCSVisualizationError`
 
 Internal helpers, execution-state classes, and module paths are not part of the v1.0 compatibility promise.
 

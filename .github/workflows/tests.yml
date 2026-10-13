@@ -20,14 +20,14 @@ jobs:
       - name: Run core tests
         run: python -m pytest tests/test_s1_formal.py tests/test_s2_replay.py tests/test_s3_coverage.py tests/test_s4_practical.py
 
-  rdkit:
+  rdkit_visualization:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install package with RDKit
+      - name: Install package with RDKit and visualization extras
         run: python -m pip install -e ".[dev]"
-      - name: Run full test suite
+      - name: Run full test suite including visualization
         run: python -m pytest
