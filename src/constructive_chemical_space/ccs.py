@@ -2004,37 +2004,70 @@ def _build_ccs_visual_mol(
 
 
 def _ccs_endpoint_annotation_positions(drawer, mol):
-    """Pixel-space annotations anchored to the actual connection endpoints.
+    """Place each allocation next to its *own* bond endpoint in drawing space.
 
-    Counts are taken from the individual RDKit begin/end endpoint properties,
-    so dative directions and display rotations never reverse their meaning.
+    A deterministic local collision search keeps numerical labels away from
+    other atoms and previously placed numbers without changing the underlying
+    CCS allocations, drawing coordinates, or nucleus-index correspondence.
     """
     annotations = []
+    atom_centers = [
+        (drawer.GetDrawCoords(i).x, drawer.GetDrawCoords(i).y)
+        for i in range(mol.GetNumAtoms())
+    ]
+    min_x, max_x = 13.0, float(drawer.Width()) - 13.0
+    min_y, max_y = 14.0, float(drawer.Height()) - 14.0
     for bond in mol.GetBonds():
         if not (bond.HasProp("_CCSDisplayEndpointAllocations")
                 and bond.GetBoolProp("_CCSDisplayEndpointAllocations")):
             continue
         begin, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-        p, q = drawer.GetDrawCoords(begin), drawer.GetDrawCoords(end)
-        dx, dy = q.x - p.x, q.y - p.y
-        distance = hypot(dx, dy)
-        if distance > 1.0e-8:
-            nx, ny = -dy / distance, dx / distance
-            along = min(0.30, max(0.16, 65.0 / distance))
+        p, q = atom_centers[begin], atom_centers[end]
+        dx, dy = q[0] - p[0], q[1] - p[1]
+        length = hypot(dx, dy)
+        if length < 1.0e-8:
+            nx, ny = 0.0, 1.0
         else:
-            nx, ny, along = 0.0, 1.0, 0.30
-        for atom_idx, position, other, electrons in (
+            nx, ny = -dy / length, dx / length
+
+        for atom_idx, own, other, electrons in (
             (begin, p, q, bond.GetIntProp("_CCSBeginAllocation")),
             (end, q, p, bond.GetIntProp("_CCSEndAllocation")),
         ):
+            best = None
+            text_radius = 6.0 + 3.5 * len(str(electrons))
+            # Offset from the nucleus along its own connection, then shift
+            # perpendicular to avoid nearby nuclei, other labels and edges.
+            for fraction in (0.23, 0.31, 0.16):
+                for side in (1, -1):
+                    for displacement in (13.0, 21.0, 29.0, 38.0):
+                        x = own[0] + fraction * (other[0] - own[0]) + side * displacement * nx
+                        y = own[1] + fraction * (other[1] - own[1]) + side * displacement * ny
+                        penalty = 0.18 * displacement + 28.0 * abs(fraction - 0.23)
+                        if not min_x < x < max_x or not min_y < y < max_y:
+                            penalty += 2.0e4
+                        for atom_number, (ax, ay) in enumerate(atom_centers):
+                            distance = hypot(x - ax, y - ay)
+                            threshold = (18.0 if atom_number == atom_idx else 21.0) + text_radius * 0.55
+                            if distance < threshold:
+                                penalty += 170.0 * (threshold - distance + 1.0)
+                        for _, _, previous_electrons, px, py in annotations:
+                            target = 13.0 + text_radius + 3.5 * len(str(previous_electrons))
+                            separation = hypot(x - px, y - py)
+                            if separation < target:
+                                penalty += 220.0 * (target - separation + 1.0)
+                        candidate = (penalty, x, y)
+                        if best is None or candidate < best:
+                            best = candidate
             atom = mol.GetAtomWithIdx(atom_idx)
             annotations.append((
-                bond.GetIdx(), atom.GetIntProp("_CCSTemporaryIndex"), electrons,
-                position.x + along * (other.x - position.x) + 12.0 * nx,
-                position.y + along * (other.y - position.y) + 12.0 * ny,
+                bond.GetIdx(),
+                atom.GetIntProp("_CCSTemporaryIndex"),
+                electrons,
+                best[1],
+                best[2],
             ))
     return annotations
-
 
 def _ccs_footer(source, source_kind: str, *,
                 show_total_charge: bool, show_hydrogens: bool) -> list[str]:
@@ -2053,7 +2086,7 @@ def _ccs_footer(source, source_kind: str, *,
 def _ccs_render_options(
     obj, *, view="auto", order=None, show_hydrogens=True,
     show_indices=False, diagnostics=False, label_all_allocations=False,
-    allocation_label_mode="endpoint",
+    allocation_label_mode="endpoint", layout="auto",
     show_total_charge=False, width=1000, height=700,
     bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
 ):
@@ -2067,6 +2100,8 @@ def _ccs_render_options(
         raise TypeError("show_hydrogens must be a boolean; default is True")
     if allocation_label_mode not in {"endpoint", "bond", "none"}:
         raise ValueError("allocation_label_mode must be endpoint, bond or none")
+    if layout not in {"auto", "coordgen", "rdkit"}:
+        raise ValueError("layout must be 'auto', 'coordgen' or 'rdkit'")
 
     source, display_order, kind = _visual_source(obj, view=view, order=order)
     mol = _build_ccs_visual_mol(
@@ -2076,9 +2111,27 @@ def _ccs_render_options(
         allocation_label_mode=allocation_label_mode,
     )
     from rdkit.Chem import rdDepictor
-    # No process-global RDKit depiction settings are modified.
+    # CoordGen is especially helpful for fused rings and macrocycles.
+    # Use per-molecule coordinates only; never mutate RDKit global settings.
     mol.UpdatePropertyCache(strict=False)
-    rdDepictor.Compute2DCoords(mol)
+    use_coordgen = (
+        layout == "coordgen" or
+        (layout == "auto" and mol.GetNumAtoms() >= 8
+         and mol.GetNumBonds() >= 6)
+    )
+    completed = False
+    if use_coordgen:
+        try:
+            from rdkit.Chem import rdCoordGen
+            rdCoordGen.AddCoords(mol)
+            completed = mol.GetNumAtoms() == 0 or mol.GetNumConformers() > 0
+        except (ImportError, RuntimeError, ValueError) as exc:
+            if layout == "coordgen":
+                raise CCSVisualizationError(
+                    "CoordGen could not arrange the supplied CCS graph"
+                ) from exc
+    if not completed:
+        rdDepictor.Compute2DCoords(mol)
     if bond_length_scale != 1 and mol.GetNumAtoms():
         conf = mol.GetConformer()
         for index in range(mol.GetNumAtoms()):
@@ -2100,7 +2153,7 @@ def _ccs_render_options(
 def _render_ccs_svg(
     obj, *, view="auto", order=None, show_hydrogens=True,
     show_indices=False, diagnostics=False, label_all_allocations=False,
-    allocation_label_mode="endpoint",
+    allocation_label_mode="endpoint", layout="auto",
     show_total_charge=False, width=1000, height=700,
     bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
 ) -> str:
@@ -2112,7 +2165,7 @@ def _render_ccs_svg(
         obj, view=view, order=order, show_hydrogens=show_hydrogens,
         show_indices=show_indices, diagnostics=diagnostics,
         label_all_allocations=label_all_allocations,
-        allocation_label_mode=allocation_label_mode,
+        allocation_label_mode=allocation_label_mode, layout=layout,
         show_total_charge=show_total_charge,
         width=width, height=height, bond_length_scale=bond_length_scale,
         annotation_scale=annotation_scale, footer_font_size=footer_font_size,
@@ -2190,7 +2243,7 @@ def _render_ccs_svg(
 def _render_ccs_png(
     obj, *, view="auto", order=None, show_hydrogens=True,
     show_indices=False, diagnostics=False, label_all_allocations=False,
-    allocation_label_mode="endpoint",
+    allocation_label_mode="endpoint", layout="auto",
     show_total_charge=False, width=1000, height=700,
     bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
 ) -> bytes:
@@ -2208,7 +2261,7 @@ def _render_ccs_png(
         obj, view=view, order=order, show_hydrogens=show_hydrogens,
         show_indices=show_indices, diagnostics=diagnostics,
         label_all_allocations=label_all_allocations,
-        allocation_label_mode=allocation_label_mode,
+        allocation_label_mode=allocation_label_mode, layout=layout,
         show_total_charge=show_total_charge,
         width=width, height=height, bond_length_scale=bond_length_scale,
         annotation_scale=annotation_scale, footer_font_size=footer_font_size,
