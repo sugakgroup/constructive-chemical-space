@@ -26,7 +26,9 @@ def test_manifest_complete_and_single_source_of_truth():
     assert len({e["notebook"] for e in ENTRIES}) == 55
     assert len(MANIFEST["source"]["pdf_sha256"]) == 64
     assert len(MANIFEST["source"]["docx_sha256"]) == 64
-    assert MANIFEST["data_sha256"] == "1a9c1dcd119159aba4a95ff9941ea73110de18f97583200e33b3578df6aad8dd"
+    import hashlib
+    dataset = S5_ROOT / "data" / MANIFEST["data_file"]
+    assert hashlib.sha256(dataset.read_bytes()).hexdigest() == MANIFEST["data_sha256"]
     assert not (S5_ROOT.parents[1] / "data" / "s5_records.json.xz").exists()
 
 
@@ -364,3 +366,44 @@ def test_crossing_free_constitutions_for_all_planar_S5_examples(number):
         assert mol.GetBoolProp("_CCSPlanarGraph")
         assert mol.GetIntProp("_CCS2DCrossings") == 0
         assert not any("Non-planar graph" in row for row in footer)
+
+
+def test_record13_bisperiazulene_author_corrected_formB_C():
+    """Freeze the supplied explicit B/C endpoint allocations as regression data."""
+    r = load_record(13)
+    f = {item["form"]: item for item in r["forms"]}
+    assigned0 = f["A"]["assigned"]
+    a_map = {(i, j): (a, b) for i, j, a, b in
+             f["A"]["allocated_connections"]}
+    supplied = {
+        (0, 1): (1, 1),
+        (1, 2): (2, 2),
+        (2, 3): (1, 1),
+        (3, 4): (2, 2),
+        (4, 5): (1, 1),
+        (5, 6): (1, 1),
+        (5, 15): (2, 2),
+        (6, 7): (1, 1),
+        (7, 8): (1, 1),
+        (8, 9): (1, 1),
+        (9, 14): (2, 2),
+        (14, 15): (1, 1),
+    }
+    for letter in ("B", "C"):
+        rec = f[letter]
+        allocations = {(i, j): (a, b) for i, j, a, b in
+                       rec["allocated_connections"]}
+        assert all(allocations[edge] == pair
+                   for edge, pair in supplied.items())
+        # Unmentioned edges MUST retain the Form A allocation.
+        for pair, original in a_map.items():
+            if pair not in supplied:
+                assert allocations[pair] == original
+        assert allocations[(9, 14)] == (2, 2)
+        assert allocations[(13, 14)] == (1, 1)
+        # Form A's 10–11 and 12–13 double allocations are unchanged.
+        assert allocations[(10, 11)] == (2, 2)
+        assert allocations[(12, 13)] == (2, 2)
+    assert f["B"]["assigned"] == assigned0
+    assert f["C"]["assigned"][0] == 7
+    assert f["C"]["assigned"][7] == 5
