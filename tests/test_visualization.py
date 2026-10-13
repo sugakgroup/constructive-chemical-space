@@ -333,7 +333,7 @@ def _nuclear_svg_labels(obj, **kwargs):
                 child.attrib.get("class") == "ccs-charge-minus"
                 for child in item
             )
-            return "".join(item.itertext()) + ("−" if has_stroke else "")
+            return "".join(item.itertext()).strip() + ("−" if has_stroke else "")
         return "".join(item.itertext())
 
     labels = [
@@ -445,7 +445,7 @@ def test_negative_charge_svg_uses_vector_minus_not_utf8_escape(
     ]
     assert len(lines) == 1
     assert float(lines[0].attrib["x2"]) > float(lines[0].attrib["x1"])
-    assert "".join(charges[0].itertext()) == (
+    assert "".join(charges[0].itertext()).strip() == (
         str(-expected_charge) if expected_charge < -1 else ""
     )
     _, labels = _nuclear_svg_labels(d, width=600, height=450)
