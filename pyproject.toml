@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "constructive-chemical-space"
+version = "1.0.0.dev0"
+description = "Reference implementation of Constructive Chemical Space (CCS)."
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+authors = [
+  {name = "Kensuke Suga"},
+]
+dependencies = []
+
+[project.optional-dependencies]
+rdkit = ["rdkit>=2024.3"]
+test = ["pytest>=8"]
+dev = ["pytest>=8", "rdkit>=2024.3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
