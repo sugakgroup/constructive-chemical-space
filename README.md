@@ -257,6 +257,20 @@ RDKit depiction is downstream and non-normative. In particular, line styles,
 positions, and arrow glyphs are graphical interpretations only, not CCS identity
 fields or physical bonding assignments.
 
+## SI S5 worked-example corpus
+
+All **55 numbered S5 records / 84 electron-allocation forms** from the attached
+Supporting Information are included as a compact, machine-readable
+`data/s5_records.json.xz` fixture. The standard library `lzma` module reads
+the compressed UTF-8 JSON. `tests/test_s5_records.py` checks every displayed
+form against the S1-S4 data invariants, the exact explicit-enumeration S5
+`W(D)` construction word, and replay back to the same intrinsic form.
+
+See [S5_VALIDATION.md](S5_VALIDATION.md) for source hashes, schema, audit
+results, and the distinction between document transcription and core tests.
+The fixture's indices are temporary S5 display addresses, not CCS identity
+fields.
+
 ## Tests
 
 The tests are organized by the formal specification:
@@ -268,6 +282,7 @@ tests/test_s3_coverage.py
 tests/test_s4_practical.py
 tests/test_rdkit_projection.py
 tests/test_visualization.py
+tests/test_s5_records.py
 ```
 
 The core suite also checks intrinsic isomorphism, immutability and defensive copying, deterministic S5 word generation for explicit nuclear order, multi-residue glycine macros, End eligibility boundaries, and valid/invalid macro arguments. Complete machine-readable transcription and independent cross-checking of all **55 S5 records / 84 forms** is intentionally deferred to a separate data-validation change after v1.0 API freeze; it is not claimed by this implementation PR.

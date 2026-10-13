@@ -18,6 +18,7 @@ Date: 2026-10-13. Basis: *Defining Chemical Space Constructively*, Supporting In
 | S5 deterministic `W(D)` relative to an explicit display enumeration | `ElectronAllocation.to_word(order=...)` | `test_s3_coverage.py` |
 | Non-normative RDKit projection; `n_empty` is not silently localized | `to_rdkit_mol`, `to_smiles` | `test_rdkit_projection.py` |
 | Optional S1/S5 CCS visualization; full explicit-H graph by default; non-normative allocation glyphs and q annotations | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
+| S5 complete 55-record/84-form corpus, exact W(D) replay, Table S4 and relabeling checks | `data/s5_records.json.xz`, `ElectronAllocation.to_word(order=...)`, `Word.replay()` | `tests/test_s5_records.py` |
 
 ## Reproducibility boundary
 
@@ -25,7 +26,7 @@ Date: 2026-10-13. Basis: *Defining Chemical Space Constructively*, Supporting In
 - Repeatable token sequences are guaranteed for a *fixed explicit sequence of the same nucleus objects*, passed as `to_word(order=...)`; no guarantee is made for token identity with omitted `order`.
 - RDKit atom formal charges, bond types, and SMILES are downstream heuristics, not CCS identity fields. `_CCSAssignmentImbalance` preserves the SI-derived q-value independently; `_CCSAuxCharge` is an older compatibility property.
 - `formal_charge(nucleus)` remains a deprecated alias for `assignment_imbalance(nucleus)`, not a claim of chemical formal-charge equivalence.
-- The S5 **55 records / 84 forms** are **not yet installed as a complete machine-readable fixture corpus**. Existing S5-related tests check the word convention and selected cases only. Complete independent transcription, counts/electron audits, Replay, and provenance checks require a separate data-validation change before making a full-corpus reproducibility claim.
+- The complete S5 **55 records / 84 forms** are transcribed in `data/s5_records.json.xz`. `tests/test_s5_records.py` checks each full form, lexicographic explicit-order W(D), and Replay identity. The PDF/DOCX cross-extraction audit and source hashes are recorded in `S5_VALIDATION.md`; CI does not itself regenerate the fixture from the source documents.
 - Passing executable regression tests supplies evidence for the specified cases; it is not a formal proof that all possible finite words or all physical systems have been exhaustively tested.
 
 ## Running validation
