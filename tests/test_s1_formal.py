@@ -66,3 +66,86 @@ def test_electron_allocation_quotient_retains_total_electron_count():
     assert d.num_electrons == 5
     assert d.num_unassigned_electrons == 3
     assert d.to_constitution().num_electrons == 5
+
+def test_intrinsic_form_equality_under_arbitrary_relabeling():
+    # Same graph, isotope labels and endpoint allocation after a permutation.
+    a = ElectronAllocation.from_indexed(
+        ["13C", "N", "H", "H"],
+        [6, 7, 1, 1],
+        [(0, 1, 2, 0), (1, 2, 1, 1), (0, 3, 1, 1)],
+        num_unassigned_electrons=2,
+    )
+    b = ElectronAllocation.from_indexed(
+        ["H", "H", "N", "13C"],
+        [1, 1, 7, 6],
+        [(3, 2, 2, 0), (0, 2, 1, 1), (1, 3, 1, 1)],
+        num_unassigned_electrons=2,
+    )
+    assert a == b
+    assert a.to_constitution() == b.to_constitution()
+
+
+def test_symmetric_form_isomorphism_preserves_oriented_endpoint_allocations():
+    a = ElectronAllocation.from_indexed(
+        ["C", "C", "C"], [6, 6, 6],
+        [(0, 1, 1, 2), (1, 2, 2, 1)],
+    )
+    b = ElectronAllocation.from_indexed(
+        ["C", "C", "C"], [6, 6, 6],
+        [(2, 1, 1, 2), (1, 0, 2, 1)],
+    )
+    nonisomorphic = ElectronAllocation.from_indexed(
+        ["C", "C", "C"], [6, 6, 6],
+        [(0, 1, 1, 2), (1, 2, 1, 2)],
+    )
+    assert a == b
+    assert a != nonisomorphic
+    assert a.to_constitution() == nonisomorphic.to_constitution()
+
+
+def test_assignment_imbalance_is_not_a_lewis_charge_api():
+    d = ElectronAllocation.from_indexed(
+        ["N", "B"], [7, 5], [(0, 1, 2, 0)]
+    )
+    n = next(v for v in d.nuclei if v.identity.symbol == "N")
+    assert d.assignment_imbalance(n) == 0
+    with pytest.warns(DeprecationWarning, match="assignment_imbalance"):
+        assert d.formal_charge(n) == 0
+
+
+def test_constitution_immutable_value_object():
+    from dataclasses import FrozenInstanceError
+
+    m = Constitution.from_indexed(["H", "H"], [(0, 1)], 2)
+    with pytest.raises(FrozenInstanceError):
+        m.num_electrons = -1
+    with pytest.raises(FrozenInstanceError):
+        m.connections = frozenset()
+    with pytest.raises(FrozenInstanceError):
+        m.collection = None
+    assert m.num_electrons == 2
+    assert len(m.connections) == 1
+
+
+def test_form_immutable_with_defensively_copied_assignments():
+    from dataclasses import FrozenInstanceError
+
+    h1, h2 = Nucleus("H"), Nucleus("H")
+    assignments = {h1: 1, h2: 1}
+    d = ElectronAllocation(
+        [h1, h2], assignments, [AllocatedConnection(h1, h2, 1, 1)]
+    )
+    assignments[h1] = -7  # Caller-owned mutable input cannot affect the form.
+    assert d.assigned_electrons(h1) == 1
+    with pytest.raises(TypeError):
+        d._assigned[h1] = -1
+    copy = d.assigned_mapping()
+    copy[h1] = -1
+    assert d.assigned_electrons(h1) == 1
+    with pytest.raises(FrozenInstanceError):
+        d.num_unassigned_electrons = -1
+    with pytest.raises(FrozenInstanceError):
+        d.allocated_connections = frozenset()
+    with pytest.raises(FrozenInstanceError):
+        d._assigned = {}
+    assert d.to_word(order=(h1, h2)).replay() == d
