@@ -1,4 +1,6 @@
-Full-corpus real Jupyter regeneration requested on 2026-10-13 for PR #4.
-Source: updated generic ring-aware 2D layout (commit c54f97719ac7333a51c63bd13907a02b181e38c9).
-Exactly 55 SI records and 84 forms. Commit only genuine kernel outputs.
-No merge or multi-version final matrix is requested.
+Full-corpus regeneration after fixing raw U+2212 SVG encoding, 2026-10-13.
+Use exact current CCS implementation HEAD de6cd9120b0ca7793503b71782a37e661731066a.
+Run 55 SI notebooks / 84 Forms / 168 genuine SVGs in Jupyter kernels.
+Ensure negative charge glyphs are represented in SVG source as &#8722;.
+Preserve all S1–S4 semantics and the previously validated S5 fixture.
+No merge; no Python-version matrix.
