@@ -235,8 +235,18 @@ the figure footer; optionally use `show_total_charge=True`.
 
 Allocation view uses single/double/triple strokes for `(1,1)`, `(2,2)`,
 `(3,3)`, and illustrative arrows for `(2,0)` / `(0,2)`.
-All other endpoint allocations, including `(0,0)` and odd values, are
-written **with the temporary index of each endpoint**, such as `0:3, 2:1`.
+All other endpoint allocations, including `(0,0)`, one-electron
+`(1,0)` and asymmetric `(3,2)`, are displayed **as two separate numbers
+positioned close to their own nuclei** (default
+`allocation_label_mode="endpoint"`). Their positions are calculated from the
+actual drawn bond endpoints rather than assuming that displayed left/right
+equals nuclear index order. For reproducibility, SVG text includes
+`data-bond`, `data-atom` (temporary display index), and `data-electrons`.
+The older central indexed label can be obtained with
+`allocation_label_mode="bond"` (e.g. `0:3, 2:1`), or hidden with
+`allocation_label_mode="none"`. `label_all_allocations=True` also annotates
+otherwise conventional glyphs such as `(1,1)`. The same endpoint-label
+placement is implemented in SVG and PNG.
 The SI S1.4 auxiliary assignment imbalance `q_v=Z(X(v))-n_v` is shown as
 `q=+1` / `q=-1` atom notes where nonzero, **not** as an RDKit/Lewis formal
 charge. `diagnostics=True` additionally displays `n`, residual electron
