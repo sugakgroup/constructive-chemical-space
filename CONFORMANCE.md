@@ -18,7 +18,7 @@ Date: 2026-10-13. Basis: *Defining Chemical Space Constructively*, Supporting In
 | S5 deterministic `W(D)` relative to an explicit display enumeration | `ElectronAllocation.to_word(order=...)` | `test_s3_coverage.py` |
 | Non-normative RDKit projection; `n_empty` is not silently localized | `to_rdkit_mol`, `to_smiles` | `test_rdkit_projection.py` |
 | Optional S1/S5 CCS visualization; full explicit-H graph by default; non-normative allocation glyphs and q annotations | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
-| S5 complete 55-record/84-form corpus, exact W(D) replay, Table S4 and relabeling checks | `examples/s5/data/manifest.json`, `examples/s5/data/s5_records.json.xz`, `ElectronAllocation.to_word(order=...)`, `Word.replay()` | `tests/test_s5_examples.py` |
+| S5 all 55 executed notebooks, 84 explicit W(D) words, full Form-specific D and M consistency, and 168 authentic SVG outputs | `examples/s5/data/manifest.json`, `examples/s5/data/s5_records.json.xz`, `ElectronAllocation.to_word(order=...)`, `Word.replay()` | `tests/test_s5_examples.py` |
 
 ## Reproducibility boundary
 
