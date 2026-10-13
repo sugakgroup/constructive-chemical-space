@@ -67,3 +67,19 @@ def test_insufficient_residual_budget_makes_con_noop():
         Con(0, 1, 2, 0),
     ]).replay()
     assert len(tested.connections) == 0
+
+def test_con_noop_returns_entire_original_execution_state():
+    base = Word([Nuc("H"), Nuc("H")]).replay_state()
+    assert base.apply(Con(0, 1, 2, 0)) is base
+    assert base.apply(Con(1, -1, 0, 0)) is base
+    assert base.apply(Con(0, 9, 0, 0)) is base
+    with_edge = base.apply(Con(0, 1, 0, 0))
+    assert with_edge is not base
+    assert with_edge.apply(Con(0, 1, 1, 1)) is with_edge
+
+
+def test_nuc_and_ele_remain_executable_after_inapplicable_connection():
+    d = Word([Con(0, 1, 1, 1), Nuc("H"), Ele(), Nuc("H")]).replay()
+    assert len(d.nuclei) == 2
+    assert d.num_unassigned_electrons == 1
+    assert len(d.connections) == 0
