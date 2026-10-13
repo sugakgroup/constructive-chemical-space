@@ -128,7 +128,7 @@ reproducible_word = state.form.to_word(order=state.address_table)
 assert reproducible_word.replay() == state.form
 ```
 
-The S1.4 auxiliary assignment imbalance `q_v = Z(X(v)) - n_v` is available through `D.assignment_imbalance(nucleus)`. The old `D.formal_charge(nucleus)` method remains as a **deprecated compatibility alias**, raising `DeprecationWarning`; it does not assert a conventional Lewis formal charge or an oxidation state.
+The S1.4 auxiliary assignment imbalance `q_v = Z(X(v)) - n_v` is available through `D.assignment_imbalance(nucleus)`. The old `D.formal_charge(nucleus)` method remains as a **deprecated compatibility alias**, emitting `DeprecationWarning`; it does not assert a conventional Lewis formal charge or an oxidation state.
 
 A constitution also provides the all-unassigned reference form used in the existence proof:
 
@@ -219,7 +219,7 @@ python -m pytest
 
 The reference implementation does **not** infer a unique CCS connection set from geometry or electronic structure, rank electron-allocation forms by physical relevance, or treat RDKit conversion as a lossless CCS serialization. Stereochemistry, conformational geometry, spin/electronic-state labels, and mechanical topology are outside the current CCS constitutional identity.
 
-See [`SPECIFICATION.md`](SPECIFICATION.md) for the implementation-to-SI mapping and the v1.0 API boundary.
+See [`SPECIFICATION.md`](SPECIFICATION.md) for the implementation-to-SI mapping and the v1.0 API boundary, and [`CONFORMANCE.md`](CONFORMANCE.md) for a requirement-to-test matrix and explicit limitations of the current evidence.
 
 ## License
 
