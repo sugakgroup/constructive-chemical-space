@@ -198,23 +198,23 @@ This projection is deliberately downstream and lossy. CCS endpoint allocations a
 ## Visualization and export
 
 The optional visualization API is implemented **inside the single implementation
-module** \`src/constructive_chemical_space/ccs.py\`. The small package initializer
-\`__init__.py\` only exposes imports; no second CCS core or visualization source
+module** `src/constructive_chemical_space/ccs.py`. The small package initializer
+`__init__.py` only exposes imports; no second CCS core or visualization source
 module is maintained.
 
 Install the optional dependencies:
 
-\`\`\`bash
+```bash
 python -m pip install -e ".[visualization]"
-\`\`\`
+```
 
-\`Constitution\`, \`ElectronAllocation\`, \`Word\`, and \`PracticalWord\`
-provide \`.show()\`, \`.to_svg()\`, \`.to_png()\`, and \`.save(path)\`.
-\`.show()\` displays an SVG directly in Jupyter/IPython; \`.to_svg()\`
-returns an SVG string, \`.to_png()\` returns PNG bytes, and
-\`.save("figure.svg")\` / \`.save("figure.png")\` writes a file.
+`Constitution`, `ElectronAllocation`, `Word`, and `PracticalWord`
+provide `.show()`, `.to_svg()`, `.to_png()`, and `.save(path)`.
+`.show()` displays an SVG directly in Jupyter/IPython; `.to_svg()`
+returns an SVG string, `.to_png()` returns PNG bytes, and
+`.save("figure.svg")` / `.save("figure.png")` writes a file.
 
-\`\`\`python
+```python
 from constructive_chemical_space import ElectronAllocation
 
 D = ElectronAllocation.from_indexed(
@@ -226,30 +226,30 @@ D.show(diagnostics=True, show_indices=True)
 D.save("water-allocation.svg")    # same visualization without IPython
 D.to_png(width=900, height=600)   # PNG bytes
 D.to_constitution().show()        # graph-only view
-\`\`\`
+```
 
 **Faithful defaults:** Every explicit nucleus **including H**, and every direct
 connection, is shown by default. In constitution view a plain stroke means a
-direct CCS connection, not a conventional bond order. \`N_e\` is displayed in
-the figure footer; optionally use \`show_total_charge=True\`.
+direct CCS connection, not a conventional bond order. `N_e` is displayed in
+the figure footer; optionally use `show_total_charge=True`.
 
-Allocation view uses single/double/triple strokes for \`(1,1)\`, \`(2,2)\`,
-\`(3,3)\`, and illustrative arrows for \`(2,0)\` / \`(0,2)\`.
-All other endpoint allocations, including \`(0,0)\` and odd values, are
-written **with the temporary index of each endpoint**, such as \`0:3, 2:1\`.
-The SI S1.4 auxiliary assignment imbalance \`q_v=Z(X(v))-n_v\` is shown as
-\`q=+1\` / \`q=-1\` atom notes where nonzero, **not** as an RDKit/Lewis formal
-charge. \`diagnostics=True\` additionally displays \`n\`, residual electron
-count \`r\`, and \`q\`.
+Allocation view uses single/double/triple strokes for `(1,1)`, `(2,2)`,
+`(3,3)`, and illustrative arrows for `(2,0)` / `(0,2)`.
+All other endpoint allocations, including `(0,0)` and odd values, are
+written **with the temporary index of each endpoint**, such as `0:3, 2:1`.
+The SI S1.4 auxiliary assignment imbalance `q_v=Z(X(v))-n_v` is shown as
+`q=+1` / `q=-1` atom notes where nonzero, **not** as an RDKit/Lewis formal
+charge. `diagnostics=True` additionally displays `n`, residual electron
+count `r`, and `q`.
 
-\`show_hydrogens=False\` is an **explicit opt-in, lossy simplified depiction**:
+`show_hydrogens=False` is an **explicit opt-in, lossy simplified depiction**:
 it omits H nuclei *and their connections* from the picture, including bridging
-or isotope-resolved hydrogen. Such images are marked \`H omitted - lossy view\`.
+or isotope-resolved hydrogen. Such images are marked `H omitted - lossy view`.
 They must not be treated as complete CCS constitutions or as faithful molecular
 identity diagrams.
 
-For reproducible indexed diagrams use \`order=(...)\` with the exact nucleus
-objects of the source form, or show a \`Word\` / \`PracticalWord\` (which preserves
+For reproducible indexed diagrams use `order=(...)` with the exact nucleus
+objects of the source form, or show a `Word` / `PracticalWord` (which preserves
 replay address order). Intrinsic CCS objects do not have canonical nuclear
 numbering. The visualization never mutates the CCS object or changes replay.
 
