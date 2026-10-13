@@ -282,9 +282,12 @@ verifies both against the independently specified SI forms, and visualizes
 **the replay-produced objects** using `.show()` (all H explicit by default).
 
 All 55 notebooks include **actual Jupyter kernel execution outputs**:
-139 SVGs in total. `examples/s5/execution_report.json` records the genuine
-kernel execution counts, source/SVG SHA-256 hashes and GitHub Actions run ID;
-no fabricated execution results are stored.
+168 SVGs in total (**84 form-specific constitutions plus 84 allocations**).
+All 84 form-specific constitutions are proved identical under the displayed
+nucleus-index bijection before rendering, including large symmetric examples.
+`examples/s5/execution_report.json` records genuine kernel execution counts,
+source/SVG SHA-256 hashes, and GitHub Actions run ID. No fabricated execution
+results are stored.
 
 One normalized source-data file, `examples/s5/data/s5_records.json.xz`,
 is shared by all notebooks and `tests/test_s5_examples.py`. The separate
