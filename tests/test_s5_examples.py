@@ -263,3 +263,62 @@ def test_all_literal_notebook_words_replay_into_full_ccs_objects(number):
         assert constitution.total_charge == example.constitution.total_charge
         assert len(constitution.nuclei) == len(example.constitution.nuclei)
         assert len(constitution.connections) == len(example.constitution.connections)
+
+
+@pytest.mark.parametrize("number", range(1, 56))
+def test_saved_notebook_output_hashes_match_kernel_report(number):
+    """Re-hash REAL captured SVGs and source code, not fabricated outputs."""
+    import hashlib
+    import xml.etree.ElementTree as ET
+
+    report_path = S5_ROOT / "execution_report.json"
+    if not report_path.is_file():
+        pytest.skip("No real-kernel execution report has been committed yet")
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["schema"] == "ccs-s5-real-kernel-execution-1.0"
+    assert report["status"] == "completed"
+    assert report["generation_method"] == "nbclient NotebookClient.execute() with ipykernel"
+    assert report["notebook_count"] == 55
+    assert report["form_count"] == 84
+    assert report["actual_svg_count"] == 139
+
+    entry = ENTRIES[number - 1]
+    measured = report["notebooks"][number - 1]
+    assert measured["number"] == number
+    assert measured["notebook"] == entry["notebook"]
+    assert measured["result"] == "passed"
+    notebook_path = S5_ROOT / "notebooks" / entry["notebook"]
+    nb = json.loads(notebook_path.read_text(encoding="utf-8"))
+    meta = nb["metadata"]["ccs_execution"]
+    assert meta["status"] == "completed"
+    assert meta["method"] == "nbclient real ipykernel execution"
+    assert meta["github_actions_run_id"] == report["github_actions_run_id"]
+    assert meta["input_git_commit"] == report["input_git_commit"]
+
+    cells = [c for c in nb["cells"] if c["cell_type"] == "code"]
+    assert len(cells) == 6
+    execution_counts = [c["execution_count"] for c in cells]
+    assert execution_counts == [1, 2, 3, 4, 5, 6]
+    assert execution_counts == measured["kernel_execution_counts"]
+    source_text = "\n\n".join("".join(c["source"]) for c in cells)
+    source_digest = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+    assert source_digest == meta["source_code_sha256"]
+    assert source_digest == measured["source_code_sha256"]
+
+    payloads = []
+    for c in cells:
+        for output in c["outputs"]:
+            assert output["output_type"] != "error"
+            if output["output_type"] not in {"display_data", "execute_result"}:
+                continue
+            svg = output.get("data", {}).get("image/svg+xml")
+            if svg is None:
+                continue
+            svg = "".join(svg) if isinstance(svg, list) else svg
+            ET.fromstring(svg)
+            payloads.append(svg)
+    assert len(payloads) == 1 + len(entry["forms"])
+    data_digest = hashlib.sha256("\n".join(payloads).encode("utf-8")).hexdigest()
+    assert data_digest == meta["svg_outputs_sha256"]
+    assert data_digest == measured["real_svg_sha256"]
