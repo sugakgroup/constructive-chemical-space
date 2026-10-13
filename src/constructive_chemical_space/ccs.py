@@ -1943,14 +1943,24 @@ def _build_ccs_visual_mol(
         indices[nucleus] = rw.AddAtom(atom)
 
     if source_kind == "constitution":
-        for edge in source.connections:
+        for edge in sorted(
+            source.connections,
+            key=lambda e: tuple(sorted((
+                display_index[e.endpoint1], display_index[e.endpoint2]
+            ))),
+        ):
             if edge.endpoint1 in visible_set and edge.endpoint2 in visible_set:
                 # In this view, a plain stroke means direct CCS connection,
                 # not conventional bond order or electron sharing.
                 rw.AddBond(indices[edge.endpoint1], indices[edge.endpoint2],
                            Chem.BondType.SINGLE)
     else:
-        for edge in source.allocated_connections:
+        for edge in sorted(
+            source.allocated_connections,
+            key=lambda e: tuple(sorted((
+                display_index[e.endpoint1], display_index[e.endpoint2]
+            ))),
+        ):
             if edge.endpoint1 not in visible_set or edge.endpoint2 not in visible_set:
                 continue
             bond_type, donor, acceptor, conventional = _ccs_visual_style(Chem, edge)
@@ -2090,6 +2100,20 @@ def _render_ccs_svg(
             f"{html.escape(line)}</text>"
         )
         y += font_size + 3
+    # RDKit may convert annotation text to SVG paths. Preserve the exact
+    # S1.4 auxiliary values as machine-readable XML metadata as well.
+    source, ordered, kind = _visual_source(obj, view=view, order=order)
+    if kind == "allocation":
+        imbalance_entries = [
+            f"{i}:{v.identity.label}:q={source.assignment_imbalance(v):+d}"
+            for i, v in enumerate(ordered)
+        ]
+        fragments.insert(
+            0,
+            "<desc>CCS assignment imbalance (not Lewis formal charge): "
+            + html.escape("; ".join(imbalance_entries))
+            + "</desc>",
+        )
     return svg.replace("</svg>", "\n" + "\n".join(fragments) + "\n</svg>")
 
 
