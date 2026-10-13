@@ -101,10 +101,14 @@ def replay_code(record: dict) -> str:
 def constitution_code(record: dict) -> str:
     lines = [
         "# Display the constitution from EACH explicit word, including B/C/D.",
-        "draw_options = dict(show_hydrogens=True, show_indices=True,",
+        "# Index labels are stored in metadata but omitted from clean figures.",
+        "# Both drawing layers use an explicitly crossing-aware 2D layout.",
+        "size = len(example.order)",
+        "draw_options = dict(show_hydrogens=True, show_indices=False,",
         "                    show_total_charge=True, allocation_label_mode='endpoint',",
-        "                    width=1500 if len(example.order) > 60 else 950,",
-        "                    height=1000 if len(example.order) > 60 else 650)",
+        "                    layout='auto',",
+        "                    width=2000 if size > 100 else (1650 if size > 55 else (1250 if size > 20 else 950)),",
+        "                    height=1450 if size > 100 else (1200 if size > 55 else (900 if size > 20 else 700)))",
     ]
     for form in record["forms"]:
         letter = form["form"]
@@ -213,8 +217,12 @@ def create_notebook(index: dict, record: dict) -> dict:
                  "Each Form A/B/C/... displays its own Replay-generated "
                  "Constitution and its own ElectronAllocation. The complete "
                  "constitutional signatures are proven equal under the S5 "
-                 "index bijection. Allocation labels sit near their own "
-                 "connection endpoints. Every H remains explicit.\n"),
+                 "index bijection. Nucleus labels omit temporary #indices "
+                 "by default, but retain them in the SVG metadata. Residual "
+                 "valence electrons (groups 13-17) appear as dots, and CCS "
+                 "assignment imbalance as signs near the nucleus. Planar "
+                 "graphs use crossing-free 2D connections; genuinely nonplanar "
+                 "graphs are explicitly marked. All H remain explicit.\n"),
             cell("code", prefix + "constitution", constitution_code(record)),
             cell("code", prefix + "allocations", allocation_code(record)),
             cell("markdown", prefix + "export-title",
