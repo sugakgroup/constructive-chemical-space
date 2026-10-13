@@ -200,7 +200,7 @@ def main(argv=None) -> int:
                 )
 
         output_hash = sha256("\n".join(svg_payloads).encode("utf-8"))
-        finished_at = datetime.now(timezone.utc
+        finished_at = datetime.now(timezone.utc)
         executed.metadata["ccs_execution"] = {
             "status": "completed",
             "method": "nbclient real ipykernel execution",
