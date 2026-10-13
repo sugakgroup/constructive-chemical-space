@@ -2124,11 +2124,11 @@ def _ccs_segment_intersections(mol) -> int:
 
 
 def _ccs_layout_2d(mol, layout: str) -> None:
-    """A single graph-based 2D layout pipeline for every nuclear identity.
+    """Select readable short rings, not a forced crossing-free projection.
 
-    Candidate coordinates are ranked only by crossings, nonbonded atom
-    crowding and extreme connection distances. No metal, ligand, cluster,
-    element identity or named example gets a special geometry rule.
+    The same graph-only score evaluates CoordGen and RDKit for *every*
+    identity. A chemically recognizable ring is more important than crossing
+    minimization. Spring coordinates are used only if both fail.
     """
     from math import isfinite
     from statistics import median
@@ -2141,115 +2141,140 @@ def _ccs_layout_2d(mol, layout: str) -> None:
     graph.add_edges_from(
         (b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in mol.GetBonds()
     )
-    planar, _ = nx.check_planarity(graph)
+    planar = nx.check_planarity(graph)[0]
     mol.SetBoolProp("_CCSPlanarGraph", bool(planar))
+    # Ignore hub-to-edge triangles using only graph degree, not element type.
+    ring_graph = graph.subgraph(
+        v for v, degree in graph.degree() if degree <= 5
+    )
+    short_rings = [
+        ring for ring in nx.cycle_basis(ring_graph)
+        if 4 <= len(ring) <= 8
+    ]
 
     def capture():
         if not mol.GetNumAtoms():
             return ()
         if not mol.GetNumConformers():
             return None
-        conf = mol.GetConformer()
+        con = mol.GetConformer()
         xy = tuple(
-            (float(conf.GetAtomPosition(i).x),
-             float(conf.GetAtomPosition(i).y)) for i in graph
+            (float(con.GetAtomPosition(i).x),
+             float(con.GetAtomPosition(i).y))
+            for i in range(mol.GetNumAtoms())
         )
         return xy if all(isfinite(x) and isfinite(y)
                          for x, y in xy) else None
 
     def install(xy):
-        conf = Chem.Conformer(mol.GetNumAtoms())
+        con = Chem.Conformer(mol.GetNumAtoms())
         for i, (x, y) in enumerate(xy):
-            conf.SetAtomPosition(i, (float(x), float(y), 0.0))
+            con.SetAtomPosition(i, (float(x), float(y), 0.0))
         mol.RemoveAllConformers()
-        mol.AddConformer(conf, assignId=True)
+        mol.AddConformer(con, assignId=True)
 
-    def penalty(xy, crossings):
+    def score(xy, intersections):
         if not graph.number_of_edges():
-            return float(crossings)
-        edges = [
-            hypot(xy[a][0] - xy[b][0], xy[a][1] - xy[b][1])
-            for a, b in graph.edges()
+            return 0.0, 0.0
+        lengths = [
+            hypot(xy[i][0] - xy[j][0], xy[i][1] - xy[j][1])
+            for i, j in graph.edges()
         ]
-        scale = median(edges)
-        if not isfinite(scale) or scale < 1e-10:
-            return float("inf")
-        result = sum(
-            12.0 * max(0.0, 0.55 - d / scale) ** 2
-            + 0.1 * max(0.0, d / scale - 2.5) ** 2
-            for d in edges
+        typical = median(lengths)
+        if typical <= 1e-10 or not isfinite(typical):
+            return float("inf"), float("inf")
+        ring_cost = 0.0
+        for ring in short_rings:
+            n = len(ring)
+            positions = [xy[i] for i in ring]
+            edges = [
+                hypot(positions[k][0] - positions[(k+1) % n][0],
+                      positions[k][1] - positions[(k+1) % n][1])
+                for k in range(n)
+            ]
+            avg = sum(edges) / n
+            edge_variance = sum((v - avg)**2 for v in edges) / n
+            center_x = sum(p[0] for p in positions) / n
+            center_y = sum(p[1] for p in positions) / n
+            radii = [
+                hypot(x - center_x, y - center_y) for x, y in positions
+            ]
+            radius_avg = sum(radii) / n
+            radius_variance = sum(
+                (v - radius_avg)**2 for v in radii
+            ) / n
+            area = abs(sum(
+                positions[k][0] * positions[(k+1) % n][1]
+                - positions[(k+1) % n][0] * positions[k][1]
+                for k in range(n)
+            )) / 2.0
+            ring_cost += (
+                80.0 * edge_variance / max(avg*avg, 1e-12)
+                + 45.0 * radius_variance / max(radius_avg**2, 1e-12)
+                + 80.0 * max(0.0, 0.40 - area/typical**2)**2
+            )
+        # Keep metal/long-range incidence strokes: extreme lengths are
+        # capped so they do not outweigh an intact Cp ring or cage face.
+        bond_cost = sum(
+            4.0 * max(0.0, 0.55 - d/typical)**2
+            + 0.10 * min(2.5, max(0.0, d/typical - 3.0))**2
+            for d in lengths
         )
+        overlap_cost = 0.0
         for i in range(len(xy)):
-            for j in range(i + 1, len(xy)):
+            for j in range(i+1, len(xy)):
                 if graph.has_edge(i, j):
                     continue
-                distance = hypot(xy[i][0] - xy[j][0],
-                                 xy[i][1] - xy[j][1])
-                result += 180.0 * max(
-                    0.0, 0.70 - distance / scale
-                ) ** 2
-        return result + 5.0 * crossings
+                distance = hypot(xy[i][0]-xy[j][0],
+                                 xy[i][1]-xy[j][1])
+                overlap_cost += 25.0 * max(
+                    0.0, 0.72-distance/typical
+                )**2
+        return (ring_cost + bond_cost + overlap_cost
+                + 0.08*intersections), ring_cost
 
     candidates = []
-    for method in (("rdkit", "coordgen") if layout == "auto"
+    for method in (("coordgen", "rdkit") if layout == "auto"
                    else (layout,)):
         try:
-            if method == "rdkit":
-                rdDepictor.Compute2DCoords(mol)
-            else:
+            if method == "coordgen":
                 from rdkit.Chem import rdCoordGen
                 rdCoordGen.AddCoords(mol)
+            else:
+                rdDepictor.Compute2DCoords(mol)
             xy = capture()
             if xy is not None:
-                crosses = _ccs_segment_intersections(mol)
+                crossing = _ccs_segment_intersections(mol)
+                energy, rings = score(xy, crossing)
                 candidates.append((
-                    (bool(planar and crosses), penalty(xy, crosses)),
-                    method, xy, crosses
+                    (energy, method != "coordgen"),
+                    method, xy, crossing, rings
                 ))
-        except (RuntimeError, ValueError, ImportError) as exc:
+        except (ImportError, RuntimeError, ValueError) as exc:
             if layout != "auto":
                 raise CCSVisualizationError(
-                    f"2D layout with {layout!r} failed"
+                    f"2D depiction with {layout!r} failed"
                 ) from exc
 
-    # One general repulsive layout for high-degree OR nonplanar graphs.
-    max_degree = max((d for _, d in graph.degree()), default=0)
-    if layout == "auto" and (max_degree >= 5 or not planar):
-        spread = nx.spring_layout(graph, seed=23, iterations=90)
-        xy = tuple(tuple(map(float, spread[i])) for i in graph)
-        install(xy)
-        crosses = _ccs_segment_intersections(mol)
-        candidates.append((
-            (bool(planar and crosses), penalty(xy, crosses)),
-            "spring", xy, crosses
-        ))
-
     if not candidates:
-        fallback = (nx.planar_layout(graph) if planar else
-                    nx.spring_layout(graph, seed=23, iterations=90))
-        xy = tuple(tuple(map(float, fallback[i])) for i in graph)
+        # No 3D molecular geometry, only a generic graph fallback.
+        pos = nx.spring_layout(graph, seed=23, iterations=90)
+        xy = tuple(tuple(map(float, pos[i]))
+                   for i in range(mol.GetNumAtoms()))
         install(xy)
+        crossing = _ccs_segment_intersections(mol)
+        energy, rings = score(xy, crossing)
         candidates.append((
-            (False, 0.0), "graph", xy,
-            _ccs_segment_intersections(mol)
+            (energy, True), "spring", xy, crossing, rings
         ))
 
-    _, method, xy, crosses = min(
-        candidates, key=lambda candidate: (candidate[0], candidate[1])
+    _, method, xy, crossing, rings = min(
+        candidates, key=lambda candidate: candidate[0]
     )
     install(xy)
-    if planar and crosses:
-        # A planar simple graph has a crossing-free straight-line embedding.
-        embedding = nx.planar_layout(graph)
-        install(tuple(tuple(map(float, embedding[i])) for i in graph))
-        method = "planar"
-        crosses = _ccs_segment_intersections(mol)
-        if crosses:
-            raise CCSVisualizationError(
-                f"Planar graph has {crosses} residual straight-edge crossings"
-            )
     mol.SetProp("_CCSLayoutMethod", method)
-    mol.SetIntProp("_CCS2DCrossings", crosses)
+    mol.SetDoubleProp("_CCSRingDistortion", float(rings))
+    mol.SetIntProp("_CCS2DCrossings", crossing)
     mol.SetBoolProp("_CCSNonPlanar2D", not planar)
 
 
