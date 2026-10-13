@@ -1,9 +1,7 @@
 """
 Constructive Chemical Space (CCS)
-Reference data structures and replay semantics for SI Sections S1-S4.
-
-This module follows the specification in:
-    supporting_information_ks_r001_260930.pdf
+Reference implementation of Supporting Information Sections S1-S4 for
+Constructive Chemical Space (CCS).
 
 Implemented layers
 ------------------
@@ -26,8 +24,11 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from math import ceil
+from pathlib import Path
 import re
-from typing import Callable, Iterable, Iterator, Mapping, Sequence
+from types import MappingProxyType
+import warnings
+from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +138,310 @@ def _is_int(value: object) -> bool:
 
 def _is_nonnegative_int(value: object) -> bool:
     return _is_int(value) and value >= 0
+
+
+
+# ---------------------------------------------------------------------------
+# Optional RDKit projection
+# ---------------------------------------------------------------------------
+
+class RDKitConversionError(RuntimeError):
+    """Raised when a CCS electron-allocation form cannot be projected to RDKit."""
+
+
+def _load_rdkit():
+    try:
+        from rdkit import Chem
+    except ImportError as exc:
+        raise RDKitConversionError(
+            "RDKit is required for this operation but is not installed."
+        ) from exc
+    return Chem
+
+
+def _rdkit_bond_type(Chem: Any, edge: "AllocatedConnection"):
+    """Infer an RDKit bond representation from a CCS endpoint allocation.
+
+    Returns
+    -------
+    (bond_type, donor_endpoint, acceptor_endpoint, inference_label)
+
+    The mapping is deliberately conservative:
+      (0,0)       -> UNSPECIFIED
+      (1,1)       -> SINGLE
+      (2,2)       -> DOUBLE
+      (3,3)       -> TRIPLE
+      (4,4)       -> QUADRUPLE
+      (5,5)       -> QUINTUPLE
+      (6,6)       -> HEXTUPLE
+      (2,0)/(0,2) -> DATIVE, directed donor -> acceptor
+      otherwise   -> UNSPECIFIED
+
+    CCS endpoint allocations are not bond orders, so unfamiliar patterns are
+    not forced into a conventional multiplicity.
+    """
+    ai, aj = edge.allocation1, edge.allocation2
+
+    if ai == aj:
+        if ai == 0:
+            return Chem.BondType.UNSPECIFIED, None, None, "zero-allocation"
+        bond_types = {
+            1: Chem.BondType.SINGLE,
+            2: Chem.BondType.DOUBLE,
+            3: Chem.BondType.TRIPLE,
+            4: Chem.BondType.QUADRUPLE,
+            5: Chem.BondType.QUINTUPLE,
+            6: Chem.BondType.HEXTUPLE,
+        }
+        if ai in bond_types:
+            return bond_types[ai], None, None, f"symmetric-{ai}"
+        return Chem.BondType.UNSPECIFIED, None, None, "unsupported-symmetric"
+
+    if (ai, aj) == (2, 0):
+        return Chem.BondType.DATIVE, edge.endpoint1, edge.endpoint2, "dative"
+    if (ai, aj) == (0, 2):
+        return Chem.BondType.DATIVE, edge.endpoint2, edge.endpoint1, "dative"
+
+    return Chem.BondType.UNSPECIFIED, None, None, "asymmetric-unspecified"
+
+
+def _validate_nucleus_order(
+    form: "ElectronAllocation",
+    order: Sequence["Nucleus"] | None,
+) -> tuple["Nucleus", ...]:
+    if order is None:
+        return tuple(form.nuclei)
+    order = tuple(order)
+    if len(order) != len(form.nuclei) or set(order) != set(form.nuclei):
+        raise ValueError("order must enumerate every nucleus exactly once")
+    return order
+
+
+def _build_rdkit_mol_once(
+    form: "ElectronAllocation",
+    *,
+    order: Sequence["Nucleus"] | None,
+    dative_charge_shift: bool,
+    include_ccs_properties: bool,
+):
+    Chem = _load_rdkit()
+    order = _validate_nucleus_order(form, order)
+
+    rw = Chem.RWMol()
+    index: dict[Nucleus, int] = {}
+
+    # Add nuclei as explicit RDKit atoms.  Implicit H is disabled because
+    # hydrogen is explicit in CCS.
+    for nucleus in order:
+        atom = Chem.Atom(nucleus.identity.symbol)
+        atom.SetNoImplicit(True)
+
+        if nucleus.identity.isotope is not None:
+            atom.SetIsotope(nucleus.identity.isotope)
+
+        # RDKit requires a toolkit formal-charge field.  We use CCS q_v only
+        # as an initial projection heuristic; RDKit sanitization (including the
+        # optional dative retry) may yield different formal charges.  CCS q_v
+        # is an assignment imbalance, never a Lewis-charge assertion.
+        q_v = form.assignment_imbalance(nucleus)
+        atom.SetFormalCharge(q_v)
+
+        if include_ccs_properties:
+            atom.SetIntProp("_CCSAssignedElectrons", form.assigned_electrons(nucleus))
+            atom.SetIntProp("_CCSResidualElectrons", form.residual_electrons(nucleus))
+            atom.SetIntProp("_CCSAssignmentImbalance", q_v)
+            atom.SetIntProp("_CCSAuxCharge", q_v)  # backward-compatible RDKit property
+            atom.SetProp("_CCSNuclearIdentity", nucleus.identity.label)
+
+        index[nucleus] = rw.AddAtom(atom)
+
+    dative_pairs: list[tuple[Nucleus, Nucleus]] = []
+
+    for edge in form.allocated_connections:
+        bond_type, donor, acceptor, inference = _rdkit_bond_type(Chem, edge)
+
+        if bond_type == Chem.BondType.DATIVE:
+            assert donor is not None and acceptor is not None
+            begin = index[donor]
+            end = index[acceptor]
+            dative_pairs.append((donor, acceptor))
+        else:
+            begin = index[edge.endpoint1]
+            end = index[edge.endpoint2]
+
+        rw.AddBond(begin, end, bond_type)
+        bond = rw.GetBondBetweenAtoms(begin, end)
+
+        if include_ccs_properties and bond is not None:
+            # Store the allocations in the actual RDKit bond direction.
+            begin_nucleus = donor if bond_type == Chem.BondType.DATIVE else edge.endpoint1
+            end_nucleus = acceptor if bond_type == Chem.BondType.DATIVE else edge.endpoint2
+            bond.SetIntProp(
+                "_CCSBeginAllocation",
+                edge.allocation_for(begin_nucleus),
+            )
+            bond.SetIntProp(
+                "_CCSEndAllocation",
+                edge.allocation_for(end_nucleus),
+            )
+            bond.SetProp("_CCSBondInference", inference)
+
+    mol = rw.GetMol()
+
+    # A donor allocation (2,0) can require the conventional donor+/acceptor-
+    # bookkeeping for RDKit valence sanitization (e.g. NH3->BH3).  This is
+    # tried only as a fallback after the direct q_v projection fails.
+    if dative_charge_shift:
+        for donor, acceptor in dative_pairs:
+            donor_atom = mol.GetAtomWithIdx(index[donor])
+            acceptor_atom = mol.GetAtomWithIdx(index[acceptor])
+            donor_atom.SetFormalCharge(donor_atom.GetFormalCharge() + 1)
+            acceptor_atom.SetFormalCharge(acceptor_atom.GetFormalCharge() - 1)
+
+        if include_ccs_properties and dative_pairs:
+            mol.SetProp("_CCSRDKitChargeAdjustment", "dative_retry")
+
+    if include_ccs_properties:
+        mol.SetIntProp("_CCSTotalElectrons", form.num_electrons)
+        mol.SetIntProp("_CCSUnassignedElectrons", form.num_unassigned_electrons)
+        mol.SetProp(
+            "_CCSProjectionNote",
+            "RDKit bond types/formal charges are a downstream best-effort projection; "
+            "CCS endpoint allocations remain stored as properties.",
+        )
+
+    return mol
+
+
+def _electron_allocation_to_rdkit_mol(
+    form: "ElectronAllocation",
+    *,
+    sanitize: bool = True,
+    allow_unassigned: bool = False,
+    order: Sequence["Nucleus"] | None = None,
+    include_ccs_properties: bool = True,
+    strict: bool = False,
+):
+    """Best-effort projection of an ElectronAllocation to an RDKit Mol.
+
+    If the form contains unassigned electrons, the default behavior is to
+    return None because ordinary RDKit molecular graphs/SMILES have no
+    index-independent place to store n_empty.  Set allow_unassigned=True to
+    obtain a structural Mol carrying n_empty only as a molecule property.
+
+    The initial RDKit formal-charge projection uses the CCS assignment
+    imbalance q_v = Z - n as a heuristic, not a CCS definition of Lewis charge.
+    If sanitization fails and a (2,0)/(0,2) dative allocation is present,
+    a second attempt shifts donor/acceptor charges by +1/-1, respectively.
+    _CCSAssignmentImbalance retains the unchanged CCS quantity.
+    """
+    if form.num_unassigned_electrons and not allow_unassigned:
+        message = (
+            "the CCS form contains unassigned electrons (n_empty > 0), which "
+            "cannot be represented faithfully in an ordinary RDKit molecular graph"
+        )
+        if strict:
+            raise RDKitConversionError(message)
+        return None
+
+    Chem = _load_rdkit()
+
+    base = _build_rdkit_mol_once(
+        form,
+        order=order,
+        dative_charge_shift=False,
+        include_ccs_properties=include_ccs_properties,
+    )
+
+    if not sanitize:
+        return base
+
+    try:
+        Chem.SanitizeMol(base)
+        if include_ccs_properties:
+            base.SetBoolProp("_CCSSanitized", True)
+        return base
+    except Exception as first_error:
+        has_dative = any(
+            (edge.allocation1, edge.allocation2) in {(2, 0), (0, 2)}
+            for edge in form.allocated_connections
+        )
+
+        if has_dative:
+            retry = _build_rdkit_mol_once(
+                form,
+                order=order,
+                dative_charge_shift=True,
+                include_ccs_properties=include_ccs_properties,
+            )
+            try:
+                Chem.SanitizeMol(retry)
+                if include_ccs_properties:
+                    retry.SetBoolProp("_CCSSanitized", True)
+                return retry
+            except Exception as second_error:
+                if strict:
+                    raise RDKitConversionError(
+                        "RDKit sanitization failed for both the direct and "
+                        "dative-charge-adjusted projections"
+                    ) from second_error
+
+        if strict:
+            raise RDKitConversionError(
+                "RDKit sanitization failed for the CCS electron-allocation form"
+            ) from first_error
+
+        # Best-effort Mol: preserve the graph and CCS properties even when RDKit
+        # cannot assign a chemically sanitized valence model.
+        if include_ccs_properties:
+            base.SetBoolProp("_CCSSanitized", False)
+            base.SetProp("_CCSSanitizeError", str(first_error))
+        return base
+
+
+def _electron_allocation_to_smiles(
+    form: "ElectronAllocation",
+    *,
+    canonical: bool = True,
+    isomeric: bool = True,
+    remove_hs: bool = False,
+    sanitize: bool = True,
+    allow_unassigned: bool = False,
+    strict: bool = False,
+) -> str | None:
+    """Convert a CCS allocation form to a best-effort RDKit SMILES.
+
+    This is not a lossless CCS serialization.  Endpoint-allocation properties,
+    residual counts, and n_empty are not encoded in ordinary SMILES.
+    """
+    Chem = _load_rdkit()
+    mol = _electron_allocation_to_rdkit_mol(
+        form,
+        sanitize=sanitize,
+        allow_unassigned=allow_unassigned,
+        include_ccs_properties=True,
+        strict=strict,
+    )
+    if mol is None:
+        return None
+
+    if remove_hs:
+        try:
+            mol = Chem.RemoveHs(mol, sanitize=sanitize)
+        except Exception as exc:
+            if strict:
+                raise RDKitConversionError("RDKit could not remove explicit H atoms") from exc
+
+    try:
+        return Chem.MolToSmiles(
+            mol,
+            canonical=canonical,
+            isomericSmiles=isomeric,
+        )
+    except Exception as exc:
+        if strict:
+            raise RDKitConversionError("RDKit could not produce SMILES") from exc
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -289,10 +594,17 @@ class AllocatedConnection:
         )
 
 
+@dataclass(frozen=True, eq=False, init=False, slots=True)
 class Constitution:
-    """M = (C_X, S, N_e), intrinsically index-independent."""
+    """M = (C_X, S, N_e), intrinsically index-independent.
 
-    __slots__ = ("collection", "connections", "num_electrons")
+    Immutable after construction, so the S1.3 invariants cannot be bypassed
+    through ordinary attribute reassignment.
+    """
+
+    collection: NuclearCollection
+    connections: frozenset[Connection]
+    num_electrons: int
 
     def __init__(
         self,
@@ -300,21 +612,23 @@ class Constitution:
         connections: Iterable[Connection] = (),
         num_electrons: int = 0,
     ) -> None:
-        self.collection = (
+        normalized = (
             collection if isinstance(collection, NuclearCollection)
             else NuclearCollection(collection)
         )
         if not _is_nonnegative_int(num_electrons):
             raise ValueError("num_electrons must be a nonnegative integer")
-        self.num_electrons = num_electrons
 
         conns = frozenset(connections)
         for edge in conns:
             if not isinstance(edge, Connection):
                 raise TypeError("connections must contain Connection objects")
-            if edge.endpoint1 not in self.collection.nuclei or edge.endpoint2 not in self.collection.nuclei:
+            if edge.endpoint1 not in normalized.nuclei or edge.endpoint2 not in normalized.nuclei:
                 raise ValueError("every connection endpoint must belong to the nuclear collection")
-        self.connections = conns
+
+        object.__setattr__(self, "collection", normalized)
+        object.__setattr__(self, "connections", conns)
+        object.__setattr__(self, "num_electrons", num_electrons)
 
     @property
     def nuclei(self) -> frozenset[Nucleus]:
@@ -356,8 +670,8 @@ class Constitution:
         nuclei = [Nucleus(x) for x in identities]
         edges = []
         for i, j in connections:
-            if not _is_int(i) or not _is_int(j):
-                raise TypeError("temporary input indices must be integers")
+            if not _is_nonnegative_int(i) or not _is_nonnegative_int(j):
+                raise ValueError("temporary input indices must be nonnegative integers")
             try:
                 edges.append(Connection(nuclei[i], nuclei[j]))
             except IndexError as exc:
@@ -384,9 +698,20 @@ class Constitution:
     zero_allocation = all_unassigned_form
 
     def show(self, **kwargs) -> None:
-        """Display this constitution in a Jupyter/IPython notebook."""
-        kwargs.setdefault("view", "constitution")
+        """Display an optional RDKit-rendered CCS view in IPython/Jupyter."""
         _show_ccs(self, **kwargs)
+
+    def to_svg(self, **kwargs) -> str:
+        """Return the rendered CCS view as an SVG string (requires RDKit)."""
+        return _render_ccs_svg(self, **kwargs)
+
+    def to_png(self, **kwargs) -> bytes:
+        """Return PNG bytes with the CCS electron-count footer."""
+        return _render_ccs_png(self, **kwargs)
+
+    def save(self, path: str | Path, **kwargs) -> None:
+        """Export a CCS view to .svg or .png, selected by filename suffix."""
+        _save_ccs_visualization(self, path, **kwargs)
 
     def __repr__(self) -> str:
         counts = Counter(v.identity.label for v in self.nuclei)
@@ -396,35 +721,42 @@ class Constitution:
         )
 
 
+@dataclass(frozen=True, eq=False, init=False, slots=True)
 class ElectronAllocation:
-    """D = (C_X, S, n, a, n_empty), intrinsically index-independent."""
+    """D = (C_X, S, n, a, n_empty), intrinsically index-independent.
 
-    __slots__ = ("collection", "_assigned", "allocated_connections", "num_unassigned_electron")
+    Immutable after construction.  The assigned map is also read-only;
+    constructor arguments are copied so external mutation cannot change D.
+    """
+
+    collection: NuclearCollection
+    _assigned: Mapping[Nucleus, int]
+    allocated_connections: frozenset[AllocatedConnection]
+    num_unassigned_electrons: int
 
     def __init__(
         self,
         collection: NuclearCollection | Iterable[Nucleus],
         assigned_electrons: Mapping[Nucleus, int],
         allocated_connections: Iterable[AllocatedConnection] = (),
-        num_unassigned_electron: int = 0,
+        num_unassigned_electrons: int = 0,
     ) -> None:
-        self.collection = (
+        normalized = (
             collection if isinstance(collection, NuclearCollection)
             else NuclearCollection(collection)
         )
-        nuclei = self.collection.nuclei
-
+        nuclei = normalized.nuclei
         assigned = dict(assigned_electrons)
         if set(assigned) != set(nuclei):
             raise ValueError("assigned_electrons must contain exactly one entry for every nucleus")
         if any(not _is_nonnegative_int(value) for value in assigned.values()):
             raise ValueError("assigned electron counts must be nonnegative integers")
-
-        if not _is_nonnegative_int(num_unassigned_electron):
-            raise ValueError("num_unassigned_electron must be a nonnegative integer")
+        if not _is_nonnegative_int(num_unassigned_electrons):
+            raise ValueError("num_unassigned_electrons must be a nonnegative integer")
 
         allocs = tuple(allocated_connections)
         seen_pairs: set[Connection] = set()
+        totals = {v: 0 for v in nuclei}
         for edge in allocs:
             if not isinstance(edge, AllocatedConnection):
                 raise TypeError("allocated_connections must contain AllocatedConnection objects")
@@ -433,17 +765,18 @@ class ElectronAllocation:
             if edge.connection in seen_pairs:
                 raise ValueError("parallel/duplicate connections are not allowed")
             seen_pairs.add(edge.connection)
+            totals[edge.endpoint1] += edge.allocation1
+            totals[edge.endpoint2] += edge.allocation2
+        if any(totals[v] > assigned[v] for v in nuclei):
+            raise ValueError(
+                "electron-allocation form is not well-formed: "
+                "endpoint allocations exceed assigned electrons"
+            )
 
-        self._assigned = assigned
-        self.allocated_connections = frozenset(allocs)
-        self.num_unassigned_electron = num_unassigned_electron
-
-        for nucleus in nuclei:
-            if self.allocated_sum(nucleus) > self.assigned_electrons(nucleus):
-                raise ValueError(
-                    "electron-allocation form is not well-formed: "
-                    "endpoint allocations exceed assigned electrons"
-                )
+        object.__setattr__(self, "collection", normalized)
+        object.__setattr__(self, "_assigned", MappingProxyType(assigned))
+        object.__setattr__(self, "allocated_connections", frozenset(allocs))
+        object.__setattr__(self, "num_unassigned_electrons", num_unassigned_electrons)
 
     @classmethod
     def empty(cls) -> "ElectronAllocation":
@@ -455,7 +788,7 @@ class ElectronAllocation:
         identities: Sequence[str | NuclearIdentity],
         assigned_electrons: Sequence[int],
         allocated_connections: Iterable[tuple[int, int, int, int]] = (),
-        num_unassigned_electron: int = 0,
+        num_unassigned_electrons: int = 0,
     ) -> "ElectronAllocation":
         if len(identities) != len(assigned_electrons):
             raise ValueError("identities and assigned_electrons must have the same length")
@@ -463,11 +796,13 @@ class ElectronAllocation:
         assigned = {v: n for v, n in zip(nuclei, assigned_electrons)}
         allocs = []
         for i, j, ai, aj in allocated_connections:
+            if not _is_nonnegative_int(i) or not _is_nonnegative_int(j):
+                raise ValueError("temporary input indices must be nonnegative integers")
             try:
                 allocs.append(AllocatedConnection(nuclei[i], nuclei[j], ai, aj))
             except IndexError as exc:
                 raise ValueError("temporary input index is out of range") from exc
-        return cls(nuclei, assigned, allocs, num_unassigned_electron)
+        return cls(nuclei, assigned, allocs, num_unassigned_electrons)
 
     from_data = from_indexed
 
@@ -506,13 +841,27 @@ class ElectronAllocation:
     def residual_electrons(self, nucleus: Nucleus) -> int:
         return self.assigned_electrons(nucleus) - self.allocated_sum(nucleus)
 
-    def formal_charge(self, nucleus: Nucleus) -> int:
-        """Auxiliary q_v = Z(X(v)) - n_v; not an independently stored field."""
+    def assignment_imbalance(self, nucleus: Nucleus) -> int:
+        """S1.4 auxiliary q_v = Z(X(v)) - n_v (not Lewis formal charge)."""
         return nucleus.identity.atomic_number - self.assigned_electrons(nucleus)
+
+    def formal_charge(self, nucleus: Nucleus) -> int:
+        """Deprecated compatibility alias for assignment_imbalance().
+
+        This does NOT compute an RDKit/Lewis formal charge or oxidation state.
+        """
+        warnings.warn(
+            "ElectronAllocation.formal_charge() is deprecated; use "
+            "assignment_imbalance() for the CCS q_v quantity. This is not "
+            "necessarily a conventional Lewis formal charge.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.assignment_imbalance(nucleus)
 
     @property
     def num_electrons(self) -> int:
-        return sum(self._assigned.values()) + self.num_unassigned_electron
+        return sum(self._assigned.values()) + self.num_unassigned_electrons
 
     @property
     def num_total_electron(self) -> int:
@@ -522,10 +871,58 @@ class ElectronAllocation:
         """Q_el(D)."""
         return Constitution(self.collection, self.connections, self.num_electrons)
 
-    def show(self, **kwargs) -> None:
-        """Display this electron-allocation form in a Jupyter/IPython notebook."""
-        kwargs.setdefault("view", "allocation")
-        _show_ccs(self, **kwargs)
+    def to_rdkit_mol(
+        self,
+        *,
+        sanitize: bool = True,
+        allow_unassigned: bool = False,
+        order: Sequence[Nucleus] | None = None,
+        include_ccs_properties: bool = True,
+        strict: bool = False,
+    ):
+        """Best-effort RDKit projection of this electron-allocation form.
+
+        Hydrogen is kept explicit and implicit H generation is disabled.
+        Common symmetric allocations are mapped to ordinary bond
+        multiplicities; (2,0)/(0,2) is mapped to a directed dative bond.
+        Other allocation patterns retain the connection as an UNSPECIFIED
+        RDKit bond and keep the original allocation as bond properties.
+
+        Returns None when n_empty > 0 unless allow_unassigned=True.
+        """
+        return _electron_allocation_to_rdkit_mol(
+            self,
+            sanitize=sanitize,
+            allow_unassigned=allow_unassigned,
+            order=order,
+            include_ccs_properties=include_ccs_properties,
+            strict=strict,
+        )
+
+    def to_smiles(
+        self,
+        *,
+        canonical: bool = True,
+        isomeric: bool = True,
+        remove_hs: bool = False,
+        sanitize: bool = True,
+        allow_unassigned: bool = False,
+        strict: bool = False,
+    ) -> str | None:
+        """Return a best-effort RDKit SMILES, or None when projection fails.
+
+        The default keeps CCS-explicit H atoms.  Set remove_hs=True for a
+        conventional compact SMILES when RDKit can remove those hydrogens.
+        """
+        return _electron_allocation_to_smiles(
+            self,
+            canonical=canonical,
+            isomeric=isomeric,
+            remove_hs=remove_hs,
+            sanitize=sanitize,
+            allow_unassigned=allow_unassigned,
+            strict=strict,
+        )
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, ElectronAllocation) and _allocation_isomorphic(self, other)
@@ -533,40 +930,56 @@ class ElectronAllocation:
     __hash__ = None
 
     def to_word(self, order: Sequence[Nucleus] | None = None) -> "Word":
-        """Construct one exact witness word as in S3.2.
+        """Construct the exact S5 W(D) for the chosen temporary enumeration.
 
-        The supplied order is a temporary enumeration only.  If omitted, an
-        arbitrary finite enumeration of V is chosen.
+        The nuclei are installed in the supplied order, followed by n_empty
+        Ele tokens and Con tokens sorted lexicographically by (i, j), i < j.
+        Endpoint allocations are reoriented to match the increasing addresses.
+        Without order, a noncanonical enumeration is chosen: intrinsic forms
+        deliberately have no preferred nuclear numbering (S1.2, S3.2).
         """
-        if order is None:
-            order = tuple(self.nuclei)
-        else:
-            order = tuple(order)
-            if len(order) != len(self.nuclei) or set(order) != set(self.nuclei):
-                raise ValueError("order must enumerate every nucleus exactly once")
-
+        order = _validate_nucleus_order(self, order)
         address = {v: i for i, v in enumerate(order)}
-        tokens: list[CoreToken] = [
+        tokens: list[CoreTokenType] = [
             Nuc(v.identity, self.assigned_electrons(v)) for v in order
         ]
-        tokens.extend(Ele() for _ in range(self.num_unassigned_electron))
+        tokens.extend(Ele() for _ in range(self.num_unassigned_electrons))
+
+        connections: list[tuple[int, int, int, int]] = []
         for edge in self.allocated_connections:
-            tokens.append(
-                Con(
-                    address[edge.endpoint1],
-                    address[edge.endpoint2],
-                    edge.allocation1,
-                    edge.allocation2,
-                )
-            )
+            i, j = address[edge.endpoint1], address[edge.endpoint2]
+            if i > j:
+                i, j = j, i
+            connections.append((
+                i, j,
+                edge.allocation_for(order[i]),
+                edge.allocation_for(order[j]),
+            ))
+        tokens.extend(Con(i, j, ai, aj) for i, j, ai, aj in sorted(connections))
         return Word(tokens)
+
+    def show(self, **kwargs) -> None:
+        """Display an optional RDKit-rendered CCS view in IPython/Jupyter."""
+        _show_ccs(self, **kwargs)
+
+    def to_svg(self, **kwargs) -> str:
+        """Return the rendered CCS view as an SVG string (requires RDKit)."""
+        return _render_ccs_svg(self, **kwargs)
+
+    def to_png(self, **kwargs) -> bytes:
+        """Return PNG bytes with the CCS electron-count footer."""
+        return _render_ccs_png(self, **kwargs)
+
+    def save(self, path: str | Path, **kwargs) -> None:
+        """Export a CCS view to .svg or .png, selected by filename suffix."""
+        _save_ccs_visualization(self, path, **kwargs)
 
     def __repr__(self) -> str:
         counts = Counter(v.identity.label for v in self.nuclei)
         return (
             f"ElectronAllocation(nuclei={dict(sorted(counts.items()))}, "
             f"connections={len(self.allocated_connections)}, "
-            f"N_e={self.num_electrons}, n_empty={self.num_unassigned_electron})"
+            f"N_e={self.num_electrons}, n_empty={self.num_unassigned_electrons})"
         )
 
 
@@ -639,7 +1052,7 @@ def _constitution_isomorphic(a: Constitution, b: Constitution) -> bool:
 
 
 def _allocation_isomorphic(a: ElectronAllocation, b: ElectronAllocation) -> bool:
-    if a.num_unassigned_electron != b.num_unassigned_electron:
+    if a.num_unassigned_electrons != b.num_unassigned_electrons:
         return False
     if len(a.nuclei) != len(b.nuclei):
         return False
@@ -757,6 +1170,14 @@ class Nuc(CoreToken):
         object.__setattr__(self, "n", n)
         object.__setattr__(self, "u", u)
 
+    @property
+    def assigned_electrons(self) -> int:
+        return self.n
+
+    @property
+    def reservation(self) -> int:
+        return self.u
+
     def __repr__(self) -> str:
         if self.n == self.identity.atomic_number and self.u == 0:
             return f"Nuc({self.identity.label})"
@@ -783,6 +1204,22 @@ class Con(CoreToken):
             raise TypeError("Con addresses i and j must be integers")
         if not _is_nonnegative_int(self.ai) or not _is_nonnegative_int(self.aj):
             raise ValueError("Con endpoint allocations must be nonnegative integers")
+
+    @property
+    def address1(self) -> int:
+        return self.i
+
+    @property
+    def address2(self) -> int:
+        return self.j
+
+    @property
+    def allocation1(self) -> int:
+        return self.ai
+
+    @property
+    def allocation2(self) -> int:
+        return self.aj
 
     def __repr__(self) -> str:
         return f"Con({self.i}, {self.j}; {self.ai}, {self.aj})"
@@ -838,7 +1275,7 @@ class ExecutionState:
                 nuclei,
                 assigned,
                 self.form.allocated_connections,
-                self.form.num_unassigned_electron,
+                self.form.num_unassigned_electrons,
             )
             return ExecutionState(
                 new_form,
@@ -851,7 +1288,7 @@ class ExecutionState:
                 self.form.collection,
                 self.form.assigned_mapping(),
                 self.form.allocated_connections,
-                self.form.num_unassigned_electron + 1,
+                self.form.num_unassigned_electrons + 1,
             )
             return ExecutionState(new_form, self.address_table, self.reservations)
 
@@ -878,7 +1315,7 @@ class ExecutionState:
                 self.form.collection,
                 self.form.assigned_mapping(),
                 new_allocs,
-                self.form.num_unassigned_electron,
+                self.form.num_unassigned_electrons,
             )
             return ExecutionState(new_form, self.address_table, self.reservations)
 
@@ -920,9 +1357,27 @@ class Word:
     def to_constitution(self) -> Constitution:
         return self.replay().to_constitution()
 
+    def to_rdkit_mol(self, **kwargs):
+        return self.replay().to_rdkit_mol(**kwargs)
+
+    def to_smiles(self, **kwargs) -> str | None:
+        return self.replay().to_smiles(**kwargs)
+
     def show(self, **kwargs) -> None:
-        """Replay and display this core construction word."""
+        """Display an optional RDKit-rendered CCS view in IPython/Jupyter."""
         _show_ccs(self, **kwargs)
+
+    def to_svg(self, **kwargs) -> str:
+        """Return the rendered CCS view as an SVG string (requires RDKit)."""
+        return _render_ccs_svg(self, **kwargs)
+
+    def to_png(self, **kwargs) -> bytes:
+        """Return PNG bytes with the CCS electron-count footer."""
+        return _render_ccs_png(self, **kwargs)
+
+    def save(self, path: str | Path, **kwargs) -> None:
+        """Export a CCS view to .svg or .png, selected by filename suffix."""
+        _save_ccs_visualization(self, path, **kwargs)
 
     def __repr__(self) -> str:
         return "Word([" + ", ".join(repr(t) for t in self.tokens) + "])"
@@ -1130,6 +1585,10 @@ class Macro:
     def expand(self, arguments: Sequence[int], pre_invocation_nuclei: int) -> tuple[CoreTokenType, ...]:
         if len(arguments) != self.num_args:
             raise ValueError("wrong number of macro arguments")
+        if not _is_nonnegative_int(pre_invocation_nuclei):
+            raise ValueError("pre_invocation_nuclei must be nonnegative")
+        if any(not _is_nonnegative_int(k) for k in arguments):
+            raise ValueError("macro arguments must be nonnegative integer addresses")
 
         # An out-of-range external address makes the invocation contribute no tokens.
         if any(k >= pre_invocation_nuclei for k in arguments):
@@ -1244,15 +1703,33 @@ class PracticalWord:
     def to_constitution(self) -> Constitution:
         return self.replay().to_constitution()
 
-    def show(self, **kwargs) -> None:
-        """Expand/replay and display this practical construction word."""
-        _show_ccs(self, **kwargs)
+    def to_rdkit_mol(self, **kwargs):
+        return self.replay().to_rdkit_mol(**kwargs)
+
+    def to_smiles(self, **kwargs) -> str | None:
+        return self.replay().to_smiles(**kwargs)
 
     def complete(self) -> "PracticalWord":
         """Append End only when the input does not already contain one."""
         if self.has_end:
             return self
         return PracticalWord(self.items + (End(),))
+
+    def show(self, **kwargs) -> None:
+        """Display an optional RDKit-rendered CCS view in IPython/Jupyter."""
+        _show_ccs(self, **kwargs)
+
+    def to_svg(self, **kwargs) -> str:
+        """Return the rendered CCS view as an SVG string (requires RDKit)."""
+        return _render_ccs_svg(self, **kwargs)
+
+    def to_png(self, **kwargs) -> bytes:
+        """Return PNG bytes with the CCS electron-count footer."""
+        return _render_ccs_png(self, **kwargs)
+
+    def save(self, path: str | Path, **kwargs) -> None:
+        """Export a CCS view to .svg or .png, selected by filename suffix."""
+        _save_ccs_visualization(self, path, **kwargs)
 
     def __repr__(self) -> str:
         return "PracticalWord([" + ", ".join(repr(x) for x in self.items) + "])"
@@ -1359,271 +1836,227 @@ class SearchProfile:
 
 
 # ---------------------------------------------------------------------------
-# Optional notebook visualization (RDKit)
+# Optional visualization and export, in this same implementation module.
+# No depiction field enters S1-S4 molecular identity or construction replay.
 # ---------------------------------------------------------------------------
 
 class CCSVisualizationError(RuntimeError):
-    """Raised when an optional RDKit/IPython depiction cannot be produced."""
+    """Optional CCS depiction could not be rendered."""
 
 
-def _load_visualization_dependencies():
-    try:
-        from rdkit import Chem
-        from rdkit.Chem import rdDepictor
-        from rdkit.Chem.Draw import rdMolDraw2D
-    except ImportError as exc:
-        raise CCSVisualizationError(
-            "RDKit is required for .show() visualization."
-        ) from exc
-    try:
-        from IPython.display import SVG, display
-    except ImportError as exc:
-        raise CCSVisualizationError(
-            "IPython is required for .show() notebook display."
-        ) from exc
-    return Chem, rdDepictor, rdMolDraw2D, SVG, display
-
-
-def _display_order(nuclei, order=None):
-    nuclei = tuple(nuclei)
-    if order is not None:
-        order = tuple(order)
-        if len(order) != len(nuclei) or set(order) != set(nuclei):
-            raise ValueError("order must enumerate every nucleus exactly once")
-        return order
-
-    # Direct intrinsic objects carry no indices.  This is only a display order.
-    return tuple(sorted(
-        nuclei,
-        key=lambda v: (
-            v.identity.atomic_number,
-            v.identity.isotope or 0,
-            v.identity.label,
-            id(v),
-        ),
-    ))
-
-
-def _show_source(obj, *, view="auto", order=None):
+def _visual_source(obj, *, view: str = "auto", order=None):
+    """Return an intrinsic source and a purely temporary display enumeration."""
     if view not in {"auto", "constitution", "allocation"}:
         raise ValueError("view must be 'auto', 'constitution', or 'allocation'")
 
-    if isinstance(obj, Word):
-        state = obj.replay_state()
-        form = state.form
-        display_order = tuple(state.address_table) if order is None else _display_order(form.nuclei, order)
-        if view == "constitution":
-            return form.to_constitution(), display_order, "constitution"
-        return form, display_order, "allocation"
+    if isinstance(obj, (Word, PracticalWord)):
+        state = (
+            obj.replay_state() if isinstance(obj, Word)
+            else obj.expand().replay_state()
+        )
+        source = state.form
+        default_order = state.address_table
+    elif isinstance(obj, ElectronAllocation):
+        source = obj
+        default_order = tuple(obj.nuclei)
+    elif isinstance(obj, Constitution):
+        source = obj
+        default_order = tuple(obj.nuclei)
+    else:
+        raise TypeError("visualization supports Constitution, ElectronAllocation, "
+                        "Word, and PracticalWord")
 
-    if isinstance(obj, PracticalWord):
-        state = obj.expand().replay_state()
-        form = state.form
-        display_order = tuple(state.address_table) if order is None else _display_order(form.nuclei, order)
-        if view == "constitution":
-            return form.to_constitution(), display_order, "constitution"
-        return form, display_order, "allocation"
+    if order is None:
+        display_order = tuple(default_order)
+    else:
+        display_order = tuple(order)
+        if (len(display_order) != len(source.nuclei)
+                or set(display_order) != set(source.nuclei)):
+            raise ValueError("order must enumerate each nucleus of this object exactly once")
 
-    if isinstance(obj, ElectronAllocation):
-        display_order = _display_order(obj.nuclei, order)
-        if view == "constitution":
-            return obj.to_constitution(), display_order, "constitution"
-        return obj, display_order, "allocation"
-
-    if isinstance(obj, Constitution):
+    if isinstance(source, Constitution):
         if view == "allocation":
             raise TypeError("Constitution has no electron-allocation data")
-        return obj, _display_order(obj.nuclei, order), "constitution"
-
-    raise TypeError(
-        ".show() supports Constitution, ElectronAllocation, Word, and PracticalWord"
-    )
-
-
-def _auto_show_hydrogens(order, show_hydrogens):
-    if show_hydrogens is not None:
-        return bool(show_hydrogens)
-    # Conventional compact default for molecules containing heavy atoms;
-    # all-hydrogen species such as H2+ and H3+ remain visible.
-    return not any(v.identity.symbol != "H" for v in order)
+        return source, display_order, "constitution"
+    if view == "constitution":
+        return source.to_constitution(), display_order, "constitution"
+    return source, display_order, "allocation"
 
 
-def _show_allocation_style(Chem, edge):
-    ai, aj = edge.allocation1, edge.allocation2
-    if (ai, aj) == (1, 1):
+def _ccs_visual_style(Chem, edge: AllocatedConnection):
+    """Purely illustrative RDKit stroke; never defines a CCS bond order."""
+    a, b = edge.allocation1, edge.allocation2
+    if (a, b) == (1, 1):
         return Chem.BondType.SINGLE, None, None, True
-    if (ai, aj) == (2, 2):
+    if (a, b) == (2, 2):
         return Chem.BondType.DOUBLE, None, None, True
-    if (ai, aj) == (3, 3):
+    if (a, b) == (3, 3):
         return Chem.BondType.TRIPLE, None, None, True
-    if (ai, aj) == (2, 0):
+    if (a, b) == (2, 0):
         return Chem.BondType.DATIVE, edge.endpoint1, edge.endpoint2, True
-    if (ai, aj) == (0, 2):
+    if (a, b) == (0, 2):
         return Chem.BondType.DATIVE, edge.endpoint2, edge.endpoint1, True
-    # Unusual CCS allocations are kept literal instead of being interpreted
-    # as a conventional bond order.
     return Chem.BondType.ZERO, None, None, False
 
 
-def _show_allocation_label(edge):
-    ai, aj = edge.allocation1, edge.allocation2
-    if ai + aj == 0:
-        return "(0,0)"
-    if ai + aj == 1:
-        return f"1e ({ai},{aj})"
-    return f"({ai},{aj})"
-
-
-def _build_show_mol(
+def _build_ccs_visual_mol(
     source,
-    order,
+    order: Sequence[Nucleus],
     *,
-    source_kind,
-    show_hydrogens,
-    show_indices,
-    diagnostics,
-    label_all_allocations,
+    source_kind: str,
+    show_hydrogens: bool,
+    show_indices: bool,
+    diagnostics: bool,
+    label_all_allocations: bool,
 ):
-    Chem, _, _, _, _ = _load_visualization_dependencies()
-
+    """Build an unsanitized RDKit drawing model; never mutate the CCS source."""
+    Chem = _load_rdkit()
     visible = tuple(
-        v for v in order
-        if show_hydrogens or v.identity.symbol != "H"
+        v for v in order if show_hydrogens or v.identity.symbol != "H"
     )
     visible_set = set(visible)
     display_index = {v: i for i, v in enumerate(order)}
-
     rw = Chem.RWMol()
-    index = {}
+    indices = {}
 
     for nucleus in visible:
         atom = Chem.Atom(nucleus.identity.symbol)
         atom.SetNoImplicit(True)
         if nucleus.identity.isotope is not None:
             atom.SetIsotope(nucleus.identity.isotope)
-
-        note = []
-        if show_indices:
-            note.append(str(display_index[nucleus]))
-
+        note = [f"#{display_index[nucleus]}"] if show_indices else []
         if source_kind == "allocation":
-            # q_v = Z(X(v)) - n_v: derived display quantity, not CCS identity.
-            atom.SetFormalCharge(source.formal_charge(nucleus))
+            # IMPORTANT: CCS q_v is the S1.4 auxiliary assignment imbalance,
+            # not RDKit/Lewis formal charge. Do not call SetFormalCharge(q_v).
+            q_v = source.assignment_imbalance(nucleus)
+            n_v = source.assigned_electrons(nucleus)
+            r_v = source.residual_electrons(nucleus)
+            atom.SetIntProp("_CCSAssignmentImbalance", q_v)
+            atom.SetIntProp("_CCSAssignedElectrons", n_v)
+            atom.SetIntProp("_CCSResidualElectrons", r_v)
             if diagnostics:
-                note.append(
-                    f"n={source.assigned_electrons(nucleus)} "
-                    f"r={source.residual_electrons(nucleus)} "
-                    f"q={source.formal_charge(nucleus):+d}"
-                )
-
+                note.append(f"n={n_v} r={r_v} q={q_v:+d}")
+            elif q_v:
+                note.append(f"q={q_v:+d}")
         if note:
             atom.SetProp("atomNote", "  ".join(note))
-
-        index[nucleus] = rw.AddAtom(atom)
+        indices[nucleus] = rw.AddAtom(atom)
 
     if source_kind == "constitution":
         for edge in source.connections:
             if edge.endpoint1 in visible_set and edge.endpoint2 in visible_set:
-                # A solid line means only "direct CCS connection".
-                rw.AddBond(
-                    index[edge.endpoint1],
-                    index[edge.endpoint2],
-                    Chem.BondType.SINGLE,
-                )
-        return rw.GetMol()
+                # In this view, a plain stroke means direct CCS connection,
+                # not conventional bond order or electron sharing.
+                rw.AddBond(indices[edge.endpoint1], indices[edge.endpoint2],
+                           Chem.BondType.SINGLE)
+    else:
+        for edge in source.allocated_connections:
+            if edge.endpoint1 not in visible_set or edge.endpoint2 not in visible_set:
+                continue
+            bond_type, donor, acceptor, conventional = _ccs_visual_style(Chem, edge)
+            begin = donor if donor is not None else edge.endpoint1
+            end = acceptor if acceptor is not None else edge.endpoint2
+            rw.AddBond(indices[begin], indices[end], bond_type)
+            bond = rw.GetBondBetweenAtoms(indices[begin], indices[end])
+            if bond is not None:
+                bond.SetIntProp("_CCSBeginAllocation", edge.allocation_for(begin))
+                bond.SetIntProp("_CCSEndAllocation", edge.allocation_for(end))
+                if label_all_allocations or not conventional:
+                    i, j = sorted((display_index[edge.endpoint1],
+                                   display_index[edge.endpoint2]))
+                    # Explicit endpoint indices make asymmetric allocations
+                    # unambiguous even when show_indices=False.
+                    bond.SetProp(
+                        "bondNote",
+                        f"{i}:{edge.allocation_for(order[i])}, "
+                        f"{j}:{edge.allocation_for(order[j])}",
+                    )
+                    if edge.allocation1 + edge.allocation2 == 1:
+                        bond.SetProp("_CCSOneElectron", "true")
 
-    for edge in source.allocated_connections:
-        if edge.endpoint1 not in visible_set or edge.endpoint2 not in visible_set:
-            continue
-
-        bond_type, donor, acceptor, conventional = _show_allocation_style(Chem, edge)
-        if bond_type == Chem.BondType.DATIVE:
-            begin_nucleus, end_nucleus = donor, acceptor
-        else:
-            begin_nucleus, end_nucleus = edge.endpoint1, edge.endpoint2
-
-        rw.AddBond(index[begin_nucleus], index[end_nucleus], bond_type)
-        bond = rw.GetBondBetweenAtoms(index[begin_nucleus], index[end_nucleus])
-
-        if bond is not None and (label_all_allocations or not conventional):
-            bond.SetProp("bondNote", _show_allocation_label(edge))
-
-    return rw.GetMol()
+    mol = rw.GetMol()
+    mol.SetProp("_CCSView", source_kind)
+    mol.SetBoolProp("_CCSLossyHydrogenOmission",
+                    not show_hydrogens and any(v.identity.symbol == "H" for v in order))
+    return mol
 
 
-def _show_metadata(source, source_kind, show_total_charge):
-    if source_kind == "constitution":
-        lines = [f"N_e = {source.num_electrons}"]
-        if show_total_charge:
-            lines.append(f"Q = {source.total_charge:+d}")
-        return lines
-
+def _ccs_footer(source, source_kind: str, *,
+                show_total_charge: bool, show_hydrogens: bool) -> list[str]:
     lines = [f"N_e = {source.num_electrons}"]
     if show_total_charge:
-        lines.append(f"Q = {source.to_constitution().total_charge:+d}")
-    if source.num_unassigned_electron:
-        lines.append(f"n_empty = {source.num_unassigned_electron}")
+        constitution = (source if source_kind == "constitution"
+                        else source.to_constitution())
+        lines.append(f"Q = {constitution.total_charge:+d}")
+    if source_kind == "allocation" and source.num_unassigned_electrons:
+        lines.append(f"n_empty = {source.num_unassigned_electrons}")
+    if not show_hydrogens and any(v.identity.symbol == "H" for v in source.nuclei):
+        lines.append("H omitted - lossy view (not full CCS graph)")
     return lines
 
 
-def _render_show_svg(
-    obj,
-    *,
-    view="auto",
-    order=None,
-    show_hydrogens=None,
-    show_indices=False,
-    diagnostics=False,
-    label_all_allocations=False,
-    show_total_charge=False,
-    width=1000,
-    height=700,
-    bond_length_scale=1.35,
-    annotation_scale=0.8,
-    footer_font_size=18,
+def _ccs_render_options(
+    obj, *, view="auto", order=None, show_hydrogens=True,
+    show_indices=False, diagnostics=False, label_all_allocations=False,
+    show_total_charge=False, width=1000, height=700,
+    bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
 ):
-    """Return the SVG used by .show(); primarily useful for tests."""
-    if width <= 0 or height <= 0 or bond_length_scale <= 0:
-        raise ValueError("width, height, and bond_length_scale must be positive")
+    if not (_is_int(width) and _is_int(height) and width >= 120 and height >= 150):
+        raise ValueError("width and height must be integers (at least 120 and 150)")
+    if not _is_int(footer_font_size) or footer_font_size <= 0:
+        raise ValueError("footer_font_size must be a positive integer")
+    if bond_length_scale <= 0 or annotation_scale <= 0:
+        raise ValueError("bond_length_scale and annotation_scale must be positive")
+    if not isinstance(show_hydrogens, bool):
+        raise TypeError("show_hydrogens must be a boolean; default is True")
 
-    Chem, rdDepictor, rdMolDraw2D, _, _ = _load_visualization_dependencies()
-    source, display_order, source_kind = _show_source(
-        obj, view=view, order=order
+    source, display_order, kind = _visual_source(obj, view=view, order=order)
+    mol = _build_ccs_visual_mol(
+        source, display_order, source_kind=kind,
+        show_hydrogens=show_hydrogens, show_indices=show_indices,
+        diagnostics=diagnostics, label_all_allocations=label_all_allocations,
     )
-    show_hydrogens = _auto_show_hydrogens(display_order, show_hydrogens)
-
-    mol = _build_show_mol(
-        source,
-        display_order,
-        source_kind=source_kind,
-        show_hydrogens=show_hydrogens,
-        show_indices=show_indices,
-        diagnostics=diagnostics,
-        label_all_allocations=label_all_allocations,
-    )
-
-    try:
-        mol.UpdatePropertyCache(strict=False)
-    except Exception:
-        pass
-
-    rdDepictor.SetPreferCoordGen(True)
+    from rdkit.Chem import rdDepictor
+    # No process-global RDKit depiction settings are modified.
+    mol.UpdatePropertyCache(strict=False)
     rdDepictor.Compute2DCoords(mol)
-
-    if bond_length_scale != 1:
+    if bond_length_scale != 1 and mol.GetNumAtoms():
         conf = mol.GetConformer()
-        for i in range(mol.GetNumAtoms()):
-            p = conf.GetAtomPosition(i)
+        for index in range(mol.GetNumAtoms()):
+            p = conf.GetAtomPosition(index)
             conf.SetAtomPosition(
-                i,
-                (p.x * bond_length_scale, p.y * bond_length_scale, 0.0),
+                index, (p.x * bond_length_scale, p.y * bond_length_scale, 0.0)
             )
+    footer = _ccs_footer(
+        source, kind, show_total_charge=show_total_charge,
+        show_hydrogens=show_hydrogens,
+    )
+    footer_height = max(40, 8 + len(footer) * (footer_font_size + 3))
+    drawing_height = height - footer_height
+    if drawing_height < 80:
+        raise ValueError("height is too small for the requested CCS footer")
+    return mol, footer, drawing_height, annotation_scale, footer_font_size
 
-    metadata = _show_metadata(source, source_kind, show_total_charge)
-    footer_height = max(40, 8 + len(metadata) * (footer_font_size + 3))
-    mol_height = max(120, height - footer_height)
 
-    drawer = rdMolDraw2D.MolDraw2DSVG(width, mol_height)
+def _render_ccs_svg(
+    obj, *, view="auto", order=None, show_hydrogens=True,
+    show_indices=False, diagnostics=False, label_all_allocations=False,
+    show_total_charge=False, width=1000, height=700,
+    bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
+) -> str:
+    """Export the full-graph CCS view as SVG; does not require IPython."""
+    from rdkit.Chem.Draw import rdMolDraw2D
+    import html
+
+    mol, footer, body_height, annotation_scale, font_size = _ccs_render_options(
+        obj, view=view, order=order, show_hydrogens=show_hydrogens,
+        show_indices=show_indices, diagnostics=diagnostics,
+        label_all_allocations=label_all_allocations,
+        show_total_charge=show_total_charge,
+        width=width, height=height, bond_length_scale=bond_length_scale,
+        annotation_scale=annotation_scale, footer_font_size=footer_font_size,
+    )
+    drawer = rdMolDraw2D.MolDraw2DSVG(width, body_height)
     opts = drawer.drawOptions()
     opts.annotationFontScale = annotation_scale
     opts.bondLineWidth = 2.2
@@ -1633,41 +2066,104 @@ def _render_show_svg(
     drawer.FinishDrawing()
     svg = drawer.GetDrawingText()
 
-    # Extend the canvas and add N_e / optional Q / n_empty at bottom right.
-    import html
-    import re as _re
-    svg = _re.sub(
-        rf"height=['\"]{mol_height}px['\"]",
-        f"height='{height}px'",
-        svg,
-        count=1,
+    # Extend the RDKit canvas with a separate full-system metadata footer.
+    svg, count_height = re.subn(
+        rf"height=['\"]{body_height}px['\"]",
+        f"height='{height}px'", svg, count=1,
     )
-    svg = _re.sub(
-        rf"viewBox=['\"]0 0 {width} {mol_height}['\"]",
-        f"viewBox='0 0 {width} {height}'",
-        svg,
-        count=1,
+    svg, count_viewbox = re.subn(
+        rf"viewBox=['\"]0 0 {width} {body_height}['\"]",
+        f"viewBox='0 0 {width} {height}'", svg, count=1,
     )
+    if count_height != 1 or count_viewbox != 1:
+        raise CCSVisualizationError("Could not extend RDKit SVG canvas")
 
-    y = mol_height + footer_font_size + 2
-    footer = [
-        f"<rect x='0' y='{mol_height}' width='{width}' height='{footer_height}' fill='white'/>"
+    y = body_height + font_size + 2
+    fragments = [
+        f"<rect x='0' y='{body_height}' width='{width}' "
+        f"height='{height - body_height}' fill='white'/>"
     ]
-    for line in metadata:
-        footer.append(
+    for line in footer:
+        fragments.append(
             f"<text x='{width - 14}' y='{y}' text-anchor='end' "
-            f"font-family='sans-serif' font-size='{footer_font_size}px'>"
+            f"font-family='sans-serif' font-size='{font_size}px'>"
             f"{html.escape(line)}</text>"
         )
-        y += footer_font_size + 3
+        y += font_size + 3
+    return svg.replace("</svg>", "\n" + "\n".join(fragments) + "\n</svg>")
 
-    return svg.replace("</svg>", "\n" + "\n".join(footer) + "\n</svg>")
+
+def _render_ccs_png(
+    obj, *, view="auto", order=None, show_hydrogens=True,
+    show_indices=False, diagnostics=False, label_all_allocations=False,
+    show_total_charge=False, width=1000, height=700,
+    bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
+) -> bytes:
+    """Export PNG with the same CCS metadata semantics (RDKit + Pillow)."""
+    from io import BytesIO
+    from rdkit.Chem.Draw import rdMolDraw2D
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError as exc:
+        raise CCSVisualizationError(
+            "Pillow is required for PNG export; install the visualization extra"
+        ) from exc
+
+    mol, footer, body_height, annotation_scale, font_size = _ccs_render_options(
+        obj, view=view, order=order, show_hydrogens=show_hydrogens,
+        show_indices=show_indices, diagnostics=diagnostics,
+        label_all_allocations=label_all_allocations,
+        show_total_charge=show_total_charge,
+        width=width, height=height, bond_length_scale=bond_length_scale,
+        annotation_scale=annotation_scale, footer_font_size=footer_font_size,
+    )
+    drawer = rdMolDraw2D.MolDraw2DCairo(width, body_height)
+    opts = drawer.drawOptions()
+    opts.annotationFontScale = annotation_scale
+    opts.bondLineWidth = 2.2
+    opts.additionalAtomLabelPadding = 0.12
+    opts.padding = 0.05
+    drawer.DrawMolecule(mol)
+    drawer.FinishDrawing()
+    canvas = Image.new("RGB", (width, height), "white")
+    with Image.open(BytesIO(drawer.GetDrawingText())) as body:
+        canvas.paste(body.convert("RGB"), (0, 0))
+    text_draw = ImageDraw.Draw(canvas)
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+    except OSError:
+        font = ImageFont.load_default()
+    y = body_height + 2
+    for line in footer:
+        bbox = text_draw.textbbox((0, 0), line, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_draw.text((width - 14 - text_width, y), line, fill="black", font=font)
+        y += font_size + 3
+    buffer = BytesIO()
+    canvas.save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 def _show_ccs(obj, **kwargs) -> None:
-    """Notebook display backend used by CCS object .show() methods."""
-    _, _, _, SVG, display = _load_visualization_dependencies()
-    display(SVG(data=_render_show_svg(obj, **kwargs)))
+    """Display a CCS SVG in a notebook; rendering itself does not need IPython."""
+    try:
+        from IPython.display import SVG, display
+    except ImportError as exc:
+        raise CCSVisualizationError(
+            "IPython is required for show(); use to_svg()/save() without it"
+        ) from exc
+    display(SVG(data=_render_ccs_svg(obj, **kwargs)))
+
+
+def _save_ccs_visualization(obj, path: str | Path, **kwargs) -> None:
+    destination = Path(path)
+    suffix = destination.suffix.lower()
+    if suffix == ".svg":
+        destination.write_text(_render_ccs_svg(obj, **kwargs), encoding="utf-8")
+    elif suffix == ".png":
+        destination.write_bytes(_render_ccs_png(obj, **kwargs))
+    else:
+        raise ValueError("CCS visualization export requires .svg or .png filename")
 
 
 __all__ = [
@@ -1679,6 +2175,8 @@ __all__ = [
     "AllocatedConnection",
     "Constitution",
     "ElectronAllocation",
+    "RDKitConversionError",
+    "CCSVisualizationError",
     # S2
     "Nuc",
     "Ele",
