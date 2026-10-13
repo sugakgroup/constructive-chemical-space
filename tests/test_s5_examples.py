@@ -70,6 +70,8 @@ def test_each_notebook_structure_and_manifest_matches_source(number):
         assert f"constitution_{letter}.save(" in source_cells[5]
         assert f"signature_{letter} == reference_constitution_signature" in source_cells[2]
     assert "allocation_label_mode='endpoint'" in source_cells[3]
+    assert "show_indices=False" in source_cells[3]
+    assert "layout='auto'" in source_cells[3]
     assert "EXPORT = False" in source_cells[5]
     # During the transition to executed notebooks, both clean source files
     # and fully kernel-executed files are valid; never fabricate output.
@@ -340,3 +342,25 @@ def test_saved_notebook_output_hashes_match_kernel_report(number):
     data_digest = hashlib.sha256("\n".join(payloads).encode("utf-8")).hexdigest()
     assert data_digest == meta["svg_outputs_sha256"]
     assert data_digest == measured["real_svg_sha256"]
+
+
+@pytest.mark.parametrize("number", range(1, 56), ids=[f"S5-{i:02d}" for i in range(1, 56)])
+def test_crossing_free_constitutions_for_all_planar_S5_examples(number):
+    """Every straight-line edge in a planar S5 constitution must be uncrossed.
+
+    K5- or K3,3-containing examples cannot meet this condition in 2D; those
+    cases are explicitly identified instead of making a false guarantee.
+    """
+    pytest.importorskip("rdkit")
+    pytest.importorskip("networkx")
+    from constructive_chemical_space.ccs import _ccs_render_options
+    obj = build_example(number).constitution
+    mol, footer, _, _, _ = _ccs_render_options(obj, layout="auto")
+    nonplanar_examples = {21, 42, 43, 44}
+    if number in nonplanar_examples:
+        assert mol.GetBoolProp("_CCSNonPlanar2D")
+        assert any("Non-planar graph" in row for row in footer)
+    else:
+        assert mol.GetBoolProp("_CCSPlanarGraph")
+        assert mol.GetIntProp("_CCS2DCrossings") == 0
+        assert not any("Non-planar graph" in row for row in footer)
