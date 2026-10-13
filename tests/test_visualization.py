@@ -89,8 +89,14 @@ def test_assignment_imbalance_annotation_not_rdkit_formal_charge():
     o = next(a for a in mol.GetAtoms() if a.GetSymbol() == "O")
     assert o.GetFormalCharge() == 0
     assert o.GetIntProp("_CCSAssignmentImbalance") == 1
-    assert "q=+1" in o.GetProp("atomNote")
-    assert "q=+1" in d.to_svg(show_indices=True)
+    # Default visible charge glyph is separate from the RDKit formal-charge
+    # field and the optional detailed atomNote diagnostics.
+    svg, nuclear_labels = _nuclear_svg_labels(d)
+    assert any(
+        x["kind"] == "charge" and x["glyph"] == "+"
+        for x in nuclear_labels
+    )
+    assert "q=+1" in svg
     assert d.to_constitution().total_charge == 1
 
 
@@ -334,7 +340,9 @@ def test_amine_nitrogen_displays_two_residual_valence_dots():
     )
     svg, labels = _nuclear_svg_labels(d, show_indices=False)
     residual = [i for i in labels if i["kind"] == "residual"]
-    assert residual == [{"atom": 0, "kind": "residual",
+    n_atom = next(i for i, nuc in enumerate(_visual_source(d)[1])
+                  if nuc.identity.symbol == "N")
+    assert residual == [{"atom": n_atom, "kind": "residual",
                          "count": 2, "glyph": "••"}]
     assert not any(i["kind"] == "charge" for i in labels)
     assert "n=7" not in svg
@@ -348,8 +356,10 @@ def test_water_oxygen_displays_four_valence_residual_dots():
         [(0, 1, 1, 1), (0, 2, 1, 1)],
     )
     _, labels = _nuclear_svg_labels(d)
+    o_atom = next(i for i, nuc in enumerate(_visual_source(d)[1])
+                  if nuc.identity.symbol == "O")
     oxygen_dots = [v for v in labels if v["kind"] == "residual"
-                   and v["atom"] == 0]
+                   and v["atom"] == o_atom]
     assert len(oxygen_dots) == 2
     assert sum(x["count"] for x in oxygen_dots) == 4
     assert all(x["glyph"] == "••" for x in oxygen_dots)
@@ -369,11 +379,13 @@ def test_assignment_imbalance_signs_and_valence_dots(
 ):
     d = ElectronAllocation.from_indexed(identities, assigned, edges)
     _, labels = _nuclear_svg_labels(d)
-    charge = [i for i in labels if i["kind"] == "charge" and i["atom"] == 0]
+    target = next(i for i, nuc in enumerate(_visual_source(d)[1])
+                  if nuc.identity.symbol == identities[0])
+    charge = [i for i in labels if i["kind"] == "charge" and i["atom"] == target]
     assert len(charge) == 1
     assert charge[0]["glyph"] == expected_q
     remaining = [i for i in labels if i["kind"] == "residual"
-                 and i["atom"] == 0]
+                 and i["atom"] == target]
     assert sum(i["count"] for i in remaining) == expected_dots
     for i in d.nuclei:
         assert d.assignment_imbalance(i) == i.identity.atomic_number - d.assigned_electrons(i)
@@ -392,7 +404,10 @@ def test_core_subtraction_is_not_silently_clamped_to_a_physical_electron():
     mol = _mol(d)
     assert mol.GetAtomWithIdx(0).GetIntProp("_CCSResidualValenceElectrons") == -2
     _, labels = _nuclear_svg_labels(d)
-    assert labels == []  # No fabricated dot for an inadmissible valence remainder.
+    assert not [x for x in labels if x["kind"] == "residual"]
+    # A 6+ assignment imbalance is still displayed, without inventing
+    # negative counts of residual valence electrons.
+    assert [x["glyph"] for x in labels if x["kind"] == "charge"] == ["6+"]
 
 
 def test_2d_planar_K4_has_zero_straight_line_crossings():
