@@ -497,7 +497,7 @@ def test_dense_s5_layout_is_independent_of_element_category(number):
     assert mol.GetNumAtoms() == len(example.order)
     assert mol.GetNumBonds() == len(example.constitution.connections)
     assert mol.GetProp("_CCSLayoutMethod") in {
-        "rdkit", "coordgen", "spring"
+        "rdkit", "coordgen", "coordgen-light-hubs", "spring"
     }
     assert not mol.HasProp("_CCSClusterLayoutKind")
     graph = Graph()
@@ -620,7 +620,7 @@ def test_s5_ferrocene_cp_rings_are_pentagonal():
         mean = sum(lengths)/5
         variation = (sum((d-mean)**2 for d in lengths)/5)**0.5/mean
         assert variation < 0.18
-    assert mol.GetProp("_CCSLayoutMethod") in {"coordgen", "rdkit"}
+    assert mol.GetProp("_CCSLayoutMethod") in {"coordgen", "coordgen-light-hubs", "rdkit"}
 
 
 @pytest.mark.parametrize("number", [47, 48])
