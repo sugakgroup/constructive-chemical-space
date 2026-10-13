@@ -180,6 +180,58 @@ def verify_example(example: S5Example) -> dict[str, int]:
     return result
 
 
+
+def indexed_constitution_signature(
+    constitution: Constitution, order: Sequence[Nucleus]
+):
+    """Exact S1 constitution under a specified, explicitly witnessed bijection.
+
+    The ordering is external to molecular identity. Comparing these complete
+    signatures proves identity under this supplied address correspondence,
+    even for highly symmetric large molecular graphs.
+    """
+    address = {nucleus: i for i, nucleus in enumerate(order)}
+    if (len(order) != len(constitution.nuclei)
+            or len(address) != len(constitution.nuclei)
+            or set(address) != set(constitution.nuclei)):
+        raise ValueError("order must enumerate the constitution exactly")
+    edges = tuple(sorted(
+        tuple(sorted((address[e.endpoint1], address[e.endpoint2])))
+        for e in constitution.connections
+    ))
+    return (
+        tuple(nucleus.identity for nucleus in order),
+        edges,
+        constitution.num_electrons,
+    )
+
+
+def indexed_allocation_signature(
+    form: ElectronAllocation, order: Sequence[Nucleus]
+):
+    """Complete CCS D fields, oriented relative to external index order."""
+    address = {nucleus: i for i, nucleus in enumerate(order)}
+    if (len(order) != len(form.nuclei)
+            or len(address) != len(form.nuclei)
+            or set(address) != set(form.nuclei)):
+        raise ValueError("order must enumerate the electron allocation exactly")
+    endpoints = []
+    for edge in form.allocated_connections:
+        i, j = sorted((address[edge.endpoint1], address[edge.endpoint2]))
+        endpoints.append((
+            i, j,
+            edge.allocation_for(order[i]),
+            edge.allocation_for(order[j]),
+        ))
+    return (
+        tuple(nucleus.identity for nucleus in order),
+        tuple(form.assigned_electrons(v) for v in order),
+        tuple(sorted(endpoints)),
+        form.num_unassigned_electrons,
+    )
+
+
+
 def export_example(
     example: S5Example,
     *,
