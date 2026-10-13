@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
-from math import ceil
+from math import ceil, hypot
 from pathlib import Path
 import re
 from types import MappingProxyType
@@ -1908,8 +1908,15 @@ def _build_ccs_visual_mol(
     show_indices: bool,
     diagnostics: bool,
     label_all_allocations: bool,
+    allocation_label_mode: str = "bond",
 ):
-    """Build an unsanitized RDKit drawing model; never mutate the CCS source."""
+    """Build an unsanitized drawing model without mutating CCS source.
+
+    The internal 'bond' default retains legacy bondNote expectations; the
+    public drawing interface defaults to endpoint-local numeric labels.
+    """
+    if allocation_label_mode not in {"endpoint", "bond", "none"}:
+        raise ValueError("allocation_label_mode must be endpoint, bond or none")
     Chem = _load_rdkit()
     visible = tuple(
         v for v in order if show_hydrogens or v.identity.symbol != "H"
@@ -1922,6 +1929,7 @@ def _build_ccs_visual_mol(
     for nucleus in visible:
         atom = Chem.Atom(nucleus.identity.symbol)
         atom.SetNoImplicit(True)
+        atom.SetIntProp("_CCSTemporaryIndex", display_index[nucleus])
         if nucleus.identity.isotope is not None:
             atom.SetIsotope(nucleus.identity.isotope)
         note = [f"#{display_index[nucleus]}"] if show_indices else []
@@ -1972,15 +1980,18 @@ def _build_ccs_visual_mol(
                 bond.SetIntProp("_CCSBeginAllocation", edge.allocation_for(begin))
                 bond.SetIntProp("_CCSEndAllocation", edge.allocation_for(end))
                 if label_all_allocations or not conventional:
-                    i, j = sorted((display_index[edge.endpoint1],
-                                   display_index[edge.endpoint2]))
-                    # Explicit endpoint indices make asymmetric allocations
-                    # unambiguous even when show_indices=False.
-                    bond.SetProp(
-                        "bondNote",
-                        f"{i}:{edge.allocation_for(order[i])}, "
-                        f"{j}:{edge.allocation_for(order[j])}",
-                    )
+                    if allocation_label_mode == "bond":
+                        i, j = sorted((display_index[edge.endpoint1],
+                                       display_index[edge.endpoint2]))
+                        bond.SetProp(
+                            "bondNote",
+                            f"{i}:{edge.allocation_for(order[i])}, "
+                            f"{j}:{edge.allocation_for(order[j])}",
+                        )
+                    elif allocation_label_mode == "endpoint":
+                        # Display the two counts near their corresponding
+                        # atoms, following RDKit's actual drawn orientation.
+                        bond.SetBoolProp("_CCSDisplayEndpointAllocations", True)
                     if edge.allocation1 + edge.allocation2 == 1:
                         bond.SetProp("_CCSOneElectron", "true")
 
@@ -1989,6 +2000,40 @@ def _build_ccs_visual_mol(
     mol.SetBoolProp("_CCSLossyHydrogenOmission",
                     not show_hydrogens and any(v.identity.symbol == "H" for v in order))
     return mol
+
+
+
+def _ccs_endpoint_annotation_positions(drawer, mol):
+    """Pixel-space annotations anchored to the actual connection endpoints.
+
+    Counts are taken from the individual RDKit begin/end endpoint properties,
+    so dative directions and display rotations never reverse their meaning.
+    """
+    annotations = []
+    for bond in mol.GetBonds():
+        if not (bond.HasProp("_CCSDisplayEndpointAllocations")
+                and bond.GetBoolProp("_CCSDisplayEndpointAllocations")):
+            continue
+        begin, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        p, q = drawer.GetDrawCoords(begin), drawer.GetDrawCoords(end)
+        dx, dy = q.x - p.x, q.y - p.y
+        distance = hypot(dx, dy)
+        if distance > 1.0e-8:
+            nx, ny = -dy / distance, dx / distance
+            along = min(0.30, max(0.16, 65.0 / distance))
+        else:
+            nx, ny, along = 0.0, 1.0, 0.30
+        for atom_idx, position, other, electrons in (
+            (begin, p, q, bond.GetIntProp("_CCSBeginAllocation")),
+            (end, q, p, bond.GetIntProp("_CCSEndAllocation")),
+        ):
+            atom = mol.GetAtomWithIdx(atom_idx)
+            annotations.append((
+                bond.GetIdx(), atom.GetIntProp("_CCSTemporaryIndex"), electrons,
+                position.x + along * (other.x - position.x) + 12.0 * nx,
+                position.y + along * (other.y - position.y) + 12.0 * ny,
+            ))
+    return annotations
 
 
 def _ccs_footer(source, source_kind: str, *,
@@ -2008,6 +2053,7 @@ def _ccs_footer(source, source_kind: str, *,
 def _ccs_render_options(
     obj, *, view="auto", order=None, show_hydrogens=True,
     show_indices=False, diagnostics=False, label_all_allocations=False,
+    allocation_label_mode="endpoint",
     show_total_charge=False, width=1000, height=700,
     bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
 ):
@@ -2019,12 +2065,15 @@ def _ccs_render_options(
         raise ValueError("bond_length_scale and annotation_scale must be positive")
     if not isinstance(show_hydrogens, bool):
         raise TypeError("show_hydrogens must be a boolean; default is True")
+    if allocation_label_mode not in {"endpoint", "bond", "none"}:
+        raise ValueError("allocation_label_mode must be endpoint, bond or none")
 
     source, display_order, kind = _visual_source(obj, view=view, order=order)
     mol = _build_ccs_visual_mol(
         source, display_order, source_kind=kind,
         show_hydrogens=show_hydrogens, show_indices=show_indices,
         diagnostics=diagnostics, label_all_allocations=label_all_allocations,
+        allocation_label_mode=allocation_label_mode,
     )
     from rdkit.Chem import rdDepictor
     # No process-global RDKit depiction settings are modified.
@@ -2051,6 +2100,7 @@ def _ccs_render_options(
 def _render_ccs_svg(
     obj, *, view="auto", order=None, show_hydrogens=True,
     show_indices=False, diagnostics=False, label_all_allocations=False,
+    allocation_label_mode="endpoint",
     show_total_charge=False, width=1000, height=700,
     bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
 ) -> str:
@@ -2062,6 +2112,7 @@ def _render_ccs_svg(
         obj, view=view, order=order, show_hydrogens=show_hydrogens,
         show_indices=show_indices, diagnostics=diagnostics,
         label_all_allocations=label_all_allocations,
+        allocation_label_mode=allocation_label_mode,
         show_total_charge=show_total_charge,
         width=width, height=height, bond_length_scale=bond_length_scale,
         annotation_scale=annotation_scale, footer_font_size=footer_font_size,
@@ -2073,8 +2124,24 @@ def _render_ccs_svg(
     opts.additionalAtomLabelPadding = 0.12
     opts.padding = 0.05
     drawer.DrawMolecule(mol)
+    endpoint_annotations = _ccs_endpoint_annotation_positions(drawer, mol)
     drawer.FinishDrawing()
     svg = drawer.GetDrawingText()
+
+    # Individual electron counts remain next to the endpoint that contributed
+    # them, and exact temporary endpoint indices are retained as SVG metadata.
+    endpoint_glyphs = ["<g class='ccs-endpoint-allocations'>"]
+    for bond_idx, atom_idx, electrons, x, y in endpoint_annotations:
+        endpoint_glyphs.append(
+            f"<text class='ccs-endpoint-allocation' data-bond='{bond_idx}' "
+            f"data-atom='{atom_idx}' data-electrons='{electrons}' "
+            f"x='{x:.2f}' y='{y + 4.5:.2f}' text-anchor='middle' "
+            "font-family='sans-serif' font-size='13px' font-weight='bold' "
+            "fill='#405bbb' stroke='white' stroke-width='3.5' "
+            "stroke-linejoin='round' paint-order='stroke fill'>"
+            f"{electrons}</text>"
+        )
+    endpoint_glyphs.append("</g>")
 
     # Extend the RDKit canvas with a separate full-system metadata footer.
     svg, count_height = re.subn(
@@ -2114,12 +2181,16 @@ def _render_ccs_svg(
             + html.escape("; ".join(imbalance_entries))
             + "</desc>",
         )
-    return svg.replace("</svg>", "\n" + "\n".join(fragments) + "\n</svg>")
+    return svg.replace(
+        "</svg>",
+        "\n" + "\n".join(endpoint_glyphs + fragments) + "\n</svg>",
+    )
 
 
 def _render_ccs_png(
     obj, *, view="auto", order=None, show_hydrogens=True,
     show_indices=False, diagnostics=False, label_all_allocations=False,
+    allocation_label_mode="endpoint",
     show_total_charge=False, width=1000, height=700,
     bond_length_scale=1.35, annotation_scale=0.8, footer_font_size=18,
 ) -> bytes:
@@ -2137,6 +2208,7 @@ def _render_ccs_png(
         obj, view=view, order=order, show_hydrogens=show_hydrogens,
         show_indices=show_indices, diagnostics=diagnostics,
         label_all_allocations=label_all_allocations,
+        allocation_label_mode=allocation_label_mode,
         show_total_charge=show_total_charge,
         width=width, height=height, bond_length_scale=bond_length_scale,
         annotation_scale=annotation_scale, footer_font_size=footer_font_size,
@@ -2148,11 +2220,30 @@ def _render_ccs_png(
     opts.additionalAtomLabelPadding = 0.12
     opts.padding = 0.05
     drawer.DrawMolecule(mol)
+    endpoint_annotations = _ccs_endpoint_annotation_positions(drawer, mol)
     drawer.FinishDrawing()
     canvas = Image.new("RGB", (width, height), "white")
     with Image.open(BytesIO(drawer.GetDrawingText())) as body:
         canvas.paste(body.convert("RGB"), (0, 0))
     text_draw = ImageDraw.Draw(canvas)
+    # PNG uses exactly the same atom-to-endpoint association as SVG.
+    try:
+        endpoint_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 13)
+    except OSError:
+        endpoint_font = ImageFont.load_default()
+    for _, _, electrons, x, y in endpoint_annotations:
+        number = str(electrons)
+        bounds = text_draw.textbbox((0, 0), number, font=endpoint_font)
+        tw, th = bounds[2] - bounds[0], bounds[3] - bounds[1]
+        left, top = x - tw / 2, y - th / 2
+        text_draw.rectangle(
+            (left - 2, top - 2, left + tw + 2, top + th + 2),
+            fill="white",
+        )
+        text_draw.text(
+            (left - bounds[0], top - bounds[1]), number,
+            fill="#405bbb", font=endpoint_font,
+        )
     try:
         font = ImageFont.truetype("DejaVuSans.ttf", font_size)
     except OSError:
