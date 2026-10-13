@@ -145,7 +145,11 @@ def test_zero_allocation_edge_not_deleted():
 def test_word_and_practical_word_preserve_replay_order():
     w = Word([Nuc("O"), Nuc("H"), Con(0, 1, 1, 1)])
     state = w.replay_state()
-    assert _visual_source(w)[1] == state.address_table
+    # Replay creates new abstract Nucleus objects; compare temporary order
+    # by nuclear identities rather than Python object identities.
+    assert tuple(v.identity for v in _visual_source(w)[1]) == tuple(
+        v.identity for v in state.address_table
+    )
     p = PracticalWord([Nuc("C"), End()])
     src, order, kind = _visual_source(p)
     assert len(src.nuclei) == len(order) == 5
@@ -164,7 +168,7 @@ def test_disconnected_and_electron_only_can_be_rendered():
     assert (mol2.GetNumAtoms(), mol2.GetNumBonds()) == (2, 0)
 
 
-def test_s5_cl04_multicenter_style_is_not_truncated():
+def test_exotic_multicenter_allocations_have_literal_annotations():
     # A representative high-electron metal/cage allocation.
     d = ElectronAllocation.from_indexed(
         ["Ni", "Pb", "Pb"], [28, 82, 82],
@@ -190,6 +194,7 @@ def test_svg_png_export_and_save(tmp_path):
     p.save(svg_path, width=600, height=450)
     p.save(png_path, width=600, height=450)
     assert svg_path.read_text(encoding="utf-8") == svg
+    assert p.to_svg(width=600, height=450) == svg
     assert png_path.read_bytes().startswith(b"\x89PNG")
     with pytest.raises(ValueError):
         p.save(tmp_path / "not-supported.pdf")
