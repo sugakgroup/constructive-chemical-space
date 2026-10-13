@@ -10,6 +10,7 @@ This document records the implementation contract for the private v1.0 preparati
 - Two nuclei with the same `NuclearIdentity` remain distinct carrier elements.
 - `NuclearCollection` stores no numerical nuclear index.
 - `Constitution.__eq__` and `ElectronAllocation.__eq__` compare intrinsic objects up to a bijective renaming that preserves all retained fields.
+- Both are frozen, unhashable value objects; constructor validation establishes well-formedness and ordinary attribute assignment cannot invalidate it. `ElectronAllocation` copies assigned-electron inputs into a read-only mapping, while `assigned_mapping()` returns a copy.
 
 ### Constitution
 
@@ -21,7 +22,7 @@ with a finite nuclear collection, simple undirected connection set, and nonnegat
 
 ### Electron allocation
 
-`ElectronAllocation` implements assigned counts, endpoint allocations, and `n_empty`. It enforces the well-formedness inequality at every nucleus. Residual counts and the assignment imbalance `q_v = Z(X(v)) - n_v` are derived, not independently stored.
+`ElectronAllocation` implements assigned counts, endpoint allocations, and `n_empty`. It enforces the well-formedness inequality at every nucleus. Residual counts and the S1.4 auxiliary **assignment imbalance** `q_v = Z(X(v)) - n_v` are derived, not independently stored. The public API is `assignment_imbalance(nucleus)`; `formal_charge(nucleus)` is retained only as a deprecated compatibility alias and emits `DeprecationWarning`. Neither name defines an RDKit/Lewis formal charge or oxidation state.
 
 `ElectronAllocation.to_constitution()` implements the electron-allocation quotient.
 
@@ -41,11 +42,11 @@ The public core tokens are:
 
 ## S3 — Constructive coverage helpers
 
-`ElectronAllocation.to_word()` implements one exact finite construction witness after choosing a temporary enumeration of the finite carrier.
+`ElectronAllocation.to_word(order=...)` implements the exact S5 word convention relative to one explicit temporary enumeration: Nuc in enumeration order, `n_empty` Ele tokens, and lexicographically ordered Con tokens with `i < j`, with endpoint allocations aligned to ascending addresses. The resulting Replay is intrinsically equal to the input form. Omitting `order` chooses an arbitrary enumeration that is valid for S3.2 but not promised to reproduce identical token sequences across runs.
 
 `Constitution.all_unassigned_form()` implements the all-unassigned reference lift used to prove that every constitution has at least one well-formed form.
 
-These methods are constructive helpers; they do not define unique serializations or preferred electronic descriptions.
+These methods are constructive helpers; they do not define unique serializations or preferred electronic descriptions. S5 `W(D)` is deterministic **for a fixed display enumeration**, not a canonical numbering of an intrinsic object.
 
 ## S4 — Practical molecular construction
 
@@ -84,7 +85,7 @@ The current bond-type heuristic is:
 - `(2,0)` / `(0,2)` -> directed dative representation
 - `(0,0)` and other unsupported patterns -> unspecified bond
 
-Original CCS allocation data are retained as RDKit properties where possible. A nonzero `n_empty` is not silently assigned to a nucleus.
+Original CCS allocation data are retained as RDKit properties where possible. The initial RDKit atom formal-charge guess is taken from CCS `assignment_imbalance()` only as a non-normative conversion heuristic, not as a claim of conventional formal-charge equality. The independent CCS quantity is retained on each RDKit atom as `_CCSAssignmentImbalance`; the older `_CCSAuxCharge` property remains as a compatibility alias. Sanitization may retry with different toolkit formal charges. A nonzero `n_empty` is not silently assigned to a nucleus.
 
 ## Stable v1.0 top-level imports
 
@@ -116,7 +117,8 @@ Internal helpers, execution-state classes, and module paths are not part of the 
 The principal stable constructors and methods are:
 
 - `Constitution.from_indexed(...)`, `Constitution.all_unassigned_form()`
-- `ElectronAllocation.from_indexed(...)`, `ElectronAllocation.to_constitution()`, `ElectronAllocation.to_word()`
+- `ElectronAllocation.from_indexed(...)`, `ElectronAllocation.to_constitution()`, `ElectronAllocation.to_word(order=None)`, `ElectronAllocation.assignment_imbalance(nucleus)`
+- Deprecated compatibility: `ElectronAllocation.formal_charge(nucleus)` (returns `assignment_imbalance()` and emits `DeprecationWarning`)
 - `ElectronAllocation.to_rdkit_mol(...)`, `ElectronAllocation.to_smiles(...)`
 - `Word.replay()`, `Word.replay_state()`, `Word.to_constitution()`
 - `PracticalWord.pre_end_state()`, `PracticalWord.completion_plan()`, `PracticalWord.completion_counts()`
@@ -125,6 +127,10 @@ The principal stable constructors and methods are:
 - `SearchProfile.allows(...)`
 
 For `ElectronAllocation`, the public unassigned-electron field/keyword is `num_unassigned_electrons`.
+
+## Scope of S5 example verification
+
+PR #1 includes targeted examples and tests of the **S5 deterministic construction word convention** (including the zero-allocation H2 form). Machine-readable transcription and independent exact validation of the complete **55 S5 records / 84 electron-allocation forms** will be handled separately after API freeze. The latter full-corpus test is not a current claim of v1.0 conformance.
 
 ## Explicitly excluded from the v1.0 contract
 
