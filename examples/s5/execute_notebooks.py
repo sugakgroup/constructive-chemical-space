@@ -139,7 +139,17 @@ def main() -> int:
         svg_payloads = [payload for payload in svg_payloads if payload is not None]
         for svg in svg_payloads:
             ET.fromstring(svg)  # Validate each *actual kernel-produced* SVG.
-        expected_svg_count = 1 + len(entry["forms"])
+        # A/C/D etc EACH displays its own replay-generated M AND D.
+        expected_svg_count = 2 * len(entry["forms"])
+        def real_svgs(cell):
+            return sum(svg_from_kernel_output(out) is not None
+                       for out in cell.get("outputs", []))
+        if (real_svgs(code_cells[3]) != len(entry["forms"])
+                or real_svgs(code_cells[4]) != len(entry["forms"])):
+            raise RuntimeError(
+                f"{path}: both constitution and allocation cells must have "
+                "one genuine SVG per Form"
+            )
         if len(svg_payloads) != expected_svg_count:
             raise RuntimeError(
                 f"{path}: expected {expected_svg_count} real SVG outputs, "
