@@ -73,6 +73,9 @@ def replay_code(record: dict) -> str:
             f"assert constitution_{letter}.num_electrons == example.constitution.num_electrons",
             f"assert constitution_{letter}.total_charge == example.constitution.total_charge",
             f"assert len(constitution_{letter}.connections) == len(example.constitution.connections)",
+            f"signature_{letter} = indexed_constitution_signature(constitution_{letter}, state_{letter}.address_table)",
+            f"assert signature_{letter} == reference_constitution_signature",
+            f"assert indexed_allocation_signature(allocation_{letter}, state_{letter}.address_table) == indexed_allocation_signature(reference_{letter}, example.order)",
             "if len(example.order) <= 15:",
             f"    assert allocation_{letter} == reference_{letter}",
             f"    assert constitution_{letter} == example.constitution",
@@ -81,20 +84,35 @@ def replay_code(record: dict) -> str:
             f"      ', tokens =', len(word_{letter}.tokens))",
             "",
         ]
+    # Exact equality of all resulting constitutions under the displayed
+    # index bijections, including the large/high-symmetry S5 examples.
+    labels = [item["form"] for item in record["forms"]]
+    for letter in labels[1:]:
+        lines += [
+            f"assert signature_{letter} == signature_{labels[0]}",
+        ]
+    lines.append(
+        f"print('All {len(labels)} word-generated constitutions are identical "
+        f"under the S5 displayed-index bijection.')"
+    )
     return "\n".join(lines).rstrip() + "\n"
 
 
-def constitution_code() -> str:
-    return "\n".join([
-        "# Depict Constitution constructed by replaying the literal word_A.",
+def constitution_code(record: dict) -> str:
+    lines = [
+        "# Display the constitution from EACH explicit word, including B/C/D.",
         "draw_options = dict(show_hydrogens=True, show_indices=True,",
-        "                    show_total_charge=True,",
+        "                    show_total_charge=True, allocation_label_mode='endpoint',",
         "                    width=1500 if len(example.order) > 60 else 950,",
         "                    height=1000 if len(example.order) > 60 else 650)",
-        "print('Constitution generated from word_A')",
-        "constitution_A.show(order=state_A.address_table, **draw_options)",
-        "",
-    ])
+    ]
+    for form in record["forms"]:
+        letter = form["form"]
+        lines += [
+            f"print('Constitution generated from word_{letter}')",
+            f"constitution_{letter}.show(order=state_{letter}.address_table, **draw_options)",
+        ]
+    return "\n".join(lines) + "\n"
 
 
 def allocation_code(record: dict) -> str:
@@ -114,18 +132,17 @@ def allocation_code(record: dict) -> str:
 def export_code(record: dict, notebook_name: str) -> str:
     stem = Path(notebook_name).stem
     lines = [
-        "# Explicit opt-in export from the REPLAYED result, not input data.",
-        "# By default, only real notebook-kernel image outputs are retained.",
+        "# Optional SVG export of every Form's replay-generated D AND M.",
         "EXPORT = False",
         "if EXPORT:",
         "    output_dir = repo_root / 'examples' / 's5' / 'outputs'",
         "    output_dir.mkdir(parents=True, exist_ok=True)",
-        f"    constitution_A.save(output_dir / '{stem}_Constitution.svg',",
-        "                        order=state_A.address_table, **draw_options)",
     ]
     for form in record["forms"]:
         letter = form["form"]
         lines += [
+            f"    constitution_{letter}.save(output_dir / '{stem}_Constitution_{letter}.svg',",
+            f"                               order=state_{letter}.address_table, **draw_options)",
             f"    allocation_{letter}.save(output_dir / '{stem}_Form_{letter}.svg',",
             f"                           order=state_{letter}.address_table, **draw_options)",
         ]
@@ -162,11 +179,15 @@ def create_notebook(index: dict, record: dict) -> dict:
         "    raise FileNotFoundError('Open within the CCS repository tree')",
         "if str(repo_root) not in sys.path:",
         "    sys.path.insert(0, str(repo_root))",
-        "from examples.s5._common import build_example, summarize_example, verify_example",
+        "from examples.s5._common import (",
+        "    build_example, summarize_example, verify_example,",
+        "    indexed_constitution_signature, indexed_allocation_signature,",
+        ")",
         "",
         f"example = build_example({n})",
         "print(summarize_example(example))",
         "replay_lengths = verify_example(example)",
+        "reference_constitution_signature = indexed_constitution_signature(example.constitution, example.order)",
         "print('SI source record verified:', replay_lengths)",
         "",
     ])
@@ -189,11 +210,12 @@ def create_notebook(index: dict, record: dict) -> dict:
             cell("code", prefix + "replay", replay_code(record)),
             cell("markdown", prefix + "view-title",
                  "## 3. Visualize the generated CCS objects\n\n"
-                 "The first image is constitution_A from word_A; the remaining "
-                 "images are the allocation_X objects from their explicit "
-                 "words. RDKit depiction is non-normative; every H and "
-                 "direct connection remains explicit.\n"),
-            cell("code", prefix + "constitution", constitution_code()),
+                 "Each Form A/B/C/... displays its own Replay-generated "
+                 "Constitution and its own ElectronAllocation. The complete "
+                 "constitutional signatures are proven equal under the S5 "
+                 "index bijection. Allocation labels sit near their own "
+                 "connection endpoints. Every H remains explicit.\n"),
+            cell("code", prefix + "constitution", constitution_code(record)),
             cell("code", prefix + "allocations", allocation_code(record)),
             cell("markdown", prefix + "export-title",
                  "## 4. Optional export of replayed results\n\n"
