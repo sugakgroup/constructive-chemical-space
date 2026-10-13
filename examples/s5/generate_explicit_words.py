@@ -35,7 +35,7 @@ def word_code(record: dict) -> str:
         "",
         "# Literal SI S5 W(D): Nuc in displayed order, n_empty times Ele,",
         "# then lexicographically ordered Con(i, j; ai, aj).",
-        "# These are INPUT words: no to_word() is used to produce them.",
+        "# Explicit input tokens, never auto-generated from an allocation at runtime.",
         "",
     ]
     for form in record["forms"]:
