@@ -2124,11 +2124,11 @@ def _ccs_segment_intersections(mol) -> int:
 
 
 def _ccs_layout_2d(mol, layout: str) -> None:
-    """Select readable short rings, not a forced crossing-free projection.
+    """Choose an intelligible 2D nuclear graph without chemical exceptions.
 
-    The same graph-only score evaluates CoordGen and RDKit for *every*
-    identity. A chemically recognizable ring is more important than crossing
-    minimization. Spring coordinates are used only if both fail.
+    Score polygon shape, fully incident ring hubs, relative bond lengths
+    and separation. All candidate coordinates use a temporary untyped
+    connection graph; electron allocations cannot alter the geometry.
     """
     from math import isfinite
     from statistics import median
@@ -2151,13 +2151,22 @@ def _ccs_layout_2d(mol, layout: str) -> None:
         ring for ring in nx.cycle_basis(ring_graph)
         if 4 <= len(ring) <= 8
     ]
+    # Any vertex joined to an entire short cycle belongs near its projected
+    # center. This rule uses graph incidence alone, not element or bond type.
+    ring_hubs = tuple(
+        tuple(
+            hub for hub in graph
+            if hub not in ring and all(graph.has_edge(hub, v) for v in ring)
+        )
+        for ring in short_rings
+    )
 
-    def capture():
-        if not mol.GetNumAtoms():
+    def capture(candidate):
+        if not candidate.GetNumAtoms():
             return ()
-        if not mol.GetNumConformers():
+        if not candidate.GetNumConformers():
             return None
-        con = mol.GetConformer()
+        con = candidate.GetConformer()
         xy = tuple(
             (float(con.GetAtomPosition(i).x),
              float(con.GetAtomPosition(i).y))
@@ -2175,16 +2184,17 @@ def _ccs_layout_2d(mol, layout: str) -> None:
 
     def score(xy, intersections):
         if not graph.number_of_edges():
-            return 0.0, 0.0
+            return 0.0, 0.0, 0.0
         lengths = [
             hypot(xy[i][0] - xy[j][0], xy[i][1] - xy[j][1])
             for i, j in graph.edges()
         ]
         typical = median(lengths)
         if typical <= 1e-10 or not isfinite(typical):
-            return float("inf"), float("inf")
+            return float("inf"), float("inf"), float("inf")
         ring_cost = 0.0
-        for ring in short_rings:
+        hub_cost = 0.0
+        for ring, hubs in zip(short_rings, ring_hubs):
             n = len(ring)
             positions = [xy[i] for i in ring]
             edges = [
@@ -2213,6 +2223,14 @@ def _ccs_layout_2d(mol, layout: str) -> None:
                 + 45.0 * radius_variance / max(radius_avg**2, 1e-12)
                 + 80.0 * max(0.0, 0.40 - area/typical**2)**2
             )
+            # Perfectly regular rings can still be misleading if a vertex
+            # incident to their whole perimeter is depicted far outside.
+            # Allow a small off-center tolerance in units of the ring radius.
+            for hub in hubs:
+                offset = hypot(
+                    xy[hub][0] - center_x, xy[hub][1] - center_y
+                ) / max(radius_avg, 1e-8 * typical)
+                hub_cost += 12.0 * max(0.0, offset - 0.55)**2
         # Keep metal/long-range incidence strokes: extreme lengths are
         # capped so they do not outweigh an intact Cp ring or cage face.
         bond_cost = sum(
@@ -2230,8 +2248,8 @@ def _ccs_layout_2d(mol, layout: str) -> None:
                 overlap_cost += 25.0 * max(
                     0.0, 0.72-distance/typical
                 )**2
-        return (ring_cost + bond_cost + overlap_cost
-                + 0.08*intersections), ring_cost
+        return (ring_cost + hub_cost + bond_cost + overlap_cost
+                + 0.08*intersections), ring_cost, hub_cost
 
     def spread_overlapping_leaves(points):
         """Separate coincident terminal atoms without moving cycle vertices.
@@ -2315,36 +2333,36 @@ def _ccs_layout_2d(mol, layout: str) -> None:
     )
     for method in methods:
         try:
-            if method in {"coordgen","coordgen-light-hubs"}:
+            # Derive coordinates from the connection graph alone. A copy
+            # prevents DATIVE/ZERO and other electron-allocation bond glyphs
+            # from changing the 2D geometry of the same CCS constitution.
+            working = Chem.Mol(mol)
+            working.RemoveAllConformers()
+            for edge in working.GetBonds():
+                i, j = edge.GetBeginAtomIdx(), edge.GetEndAtomIdx()
+                weakened = (
+                    method == "coordgen-light-hubs"
+                    and max(graph.degree(i), graph.degree(j)) >= 8
+                )
+                edge.SetBondType(
+                    Chem.BondType.ZERO if weakened else Chem.BondType.SINGLE
+                )
+            working.UpdatePropertyCache(strict=False)
+            if method in {"coordgen", "coordgen-light-hubs"}:
                 from rdkit.Chem import rdCoordGen
-                if method == "coordgen-light-hubs":
-                    temporary = Chem.Mol(mol)
-                    for edge in temporary.GetBonds():
-                        i,j=edge.GetBeginAtomIdx(),edge.GetEndAtomIdx()
-                        if max(graph.degree(i),graph.degree(j))>=8:
-                            edge.SetBondType(Chem.BondType.ZERO)
-                    rdCoordGen.AddCoords(temporary)
-                    if temporary.GetNumConformers():
-                        temp_coords=tuple(
-                            (temporary.GetConformer().GetAtomPosition(i).x,
-                             temporary.GetConformer().GetAtomPosition(i).y)
-                            for i in range(mol.GetNumAtoms())
-                        )
-                        install(temp_coords)
-                else:
-                    rdCoordGen.AddCoords(mol)
+                rdCoordGen.AddCoords(working)
             else:
-                rdDepictor.Compute2DCoords(mol)
-            xy = capture()
+                rdDepictor.Compute2DCoords(working)
+            xy = capture(working)
             if xy is not None:
-                # Do not change skeleton rings; only separate deg-1 leaves.
+                # Preserve skeleton cycles; separate only overlapping leaves.
                 xy = spread_overlapping_leaves(xy)
                 install(xy)
                 crossing = _ccs_segment_intersections(mol)
-                energy, rings = score(xy, crossing)
+                energy, rings, hub_penalty = score(xy, crossing)
                 candidates.append((
-                    (energy, method not in {"coordgen","coordgen-light-hubs"}),
-                    method, xy, crossing, rings
+                    (energy, method not in {"coordgen", "coordgen-light-hubs"}),
+                    method, xy, crossing, rings, hub_penalty
                 ))
         except (ImportError, RuntimeError, ValueError) as exc:
             if layout != "auto":
@@ -2359,17 +2377,23 @@ def _ccs_layout_2d(mol, layout: str) -> None:
                    for i in range(mol.GetNumAtoms()))
         install(xy)
         crossing = _ccs_segment_intersections(mol)
-        energy, rings = score(xy, crossing)
+        energy, rings, hub_penalty = score(xy, crossing)
         candidates.append((
-            (energy, True), "spring", xy, crossing, rings
+            (energy, True), "spring", xy, crossing, rings, hub_penalty
         ))
 
-    _, method, xy, crossing, rings = min(
+    ranking, method, xy, crossing, rings, hub_penalty = min(
         candidates, key=lambda candidate: candidate[0]
     )
     install(xy)
     mol.SetProp("_CCSLayoutMethod", method)
+    mol.SetDoubleProp("_CCSLayoutScore", float(ranking[0]))
+    mol.SetProp(
+        "_CCSLayoutCandidateScores",
+        ";".join(f"{candidate[1]}={candidate[0][0]:.10g}" for candidate in candidates),
+    )
     mol.SetDoubleProp("_CCSRingDistortion", float(rings))
+    mol.SetDoubleProp("_CCSRingHubPenalty", float(hub_penalty))
     mol.SetIntProp("_CCS2DCrossings", crossing)
     mol.SetBoolProp("_CCSNonPlanar2D", not planar)
 

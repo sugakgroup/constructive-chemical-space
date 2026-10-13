@@ -669,3 +669,63 @@ def test_short_ring_quality_is_priority_over_no_crossings():
         )
         assert mol.GetProp("_CCSLayoutMethod") in {"rdkit","coordgen"}
         assert mol.GetDoubleProp("_CCSRingDistortion") < 90.0
+
+@pytest.mark.parametrize(
+    ("number", "expected_method"),
+    [(18, "rdkit"), (47, "coordgen"), (48, "coordgen")],
+)
+def test_s5_auto_selects_generic_ring_hub_or_cage_projection(number, expected_method):
+    """Compare actual S5 candidates, independently of allocation bond glyphs."""
+    from examples.s5._common import build_example
+    from constructive_chemical_space.ccs import _ccs_render_options
+
+    example = build_example(number)
+    reference_points = None
+    for source in (example.constitution, *example.forms.values()):
+        mol, _, _, _, _ = _ccs_render_options(
+            source, order=example.order, layout="auto"
+        )
+        assert mol.GetProp("_CCSLayoutMethod") == expected_method
+        scores = {
+            method: float(value)
+            for method, value in (
+                entry.split("=")
+                for entry in mol.GetProp("_CCSLayoutCandidateScores").split(";")
+            )
+        }
+        competitor = "coordgen" if expected_method == "rdkit" else "rdkit"
+        assert scores[expected_method] < scores[competitor]
+        assert mol.GetDoubleProp("_CCSLayoutScore") == pytest.approx(
+            scores[expected_method], rel=1e-8
+        )
+
+        # The nuclear skeleton is common to M and all D over M.
+        conf = mol.GetConformer()
+        points = [
+            coordinate
+            for i in range(mol.GetNumAtoms())
+            for coordinate in (
+                conf.GetAtomPosition(i).x,
+                conf.GetAtomPosition(i).y,
+            )
+        ]
+        if reference_points is None:
+            reference_points = points
+        else:
+            assert points == pytest.approx(reference_points, abs=1e-6)
+
+        if number == 18 and source is not example.constitution:
+            # A temporary all-SINGLE coordinate model cannot mutate the
+            # final rendered allocation's genuine line/arrow styles.
+            styles = {bond.GetBondType() for bond in mol.GetBonds()}
+            assert {Chem.BondType.SINGLE, Chem.BondType.DATIVE,
+                    Chem.BondType.ZERO} <= styles
+
+    for method in ("coordgen", "rdkit"):
+        forced, _, _, _, _ = _ccs_render_options(
+            example.constitution, order=example.order, layout=method
+        )
+        assert forced.GetProp("_CCSLayoutMethod") == method
+        assert forced.GetDoubleProp("_CCSLayoutScore") == pytest.approx(
+            scores[method], rel=1e-8
+        )
