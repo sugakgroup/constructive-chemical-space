@@ -49,5 +49,11 @@ jobs:
             echo "No executed notebook changes; refusing to publish a fake result" >&2
             exit 1
           fi
-          git commit -m "docs(examples): save outputs from 55 executed Jupyter kernels"
+          git commit -m "docs(examples): save genuine outputs from every S5 Form"
+          # The review branch may gain source/test/doc commits during execution.
+          # Rebase the *real kernel-produced* outputs without discarding them
+          # instead of force-pushing or synthesizing any notebook output.
+          git fetch origin feature/s5-records-validation
+          git rebase origin/feature/s5-records-validation
+          python -m pytest -q tests/test_s5_examples.py
           git push origin HEAD:feature/s5-records-validation
