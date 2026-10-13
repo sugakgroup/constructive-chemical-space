@@ -266,9 +266,15 @@ forms**. Start with [`S5_01_H2.ipynb`](examples/s5/notebooks/S5_01_H2.ipynb),
 [`S5_55_Catenane.ipynb`](examples/s5/notebooks/S5_55_Catenane.ipynb).
 
 The [S5 examples README](examples/s5/README.md) explains how each notebook
-builds the full Constitution and every ElectronAllocation, verifies the exact
-temporary-enumeration `W(D)` by Replay, and displays them with the packaged
-`.show()` API (explicit H and every connection are shown by default).
+defines complete, **literal** `Word([Nuc, Ele, Con])` construction sequences,
+actually replays them into new ElectronAllocation and Constitution objects,
+verifies both against the independently specified SI forms, and visualizes
+**the replay-produced objects** using `.show()` (all H explicit by default).
+
+All 55 notebooks include **actual Jupyter kernel execution outputs**:
+139 SVGs in total. `examples/s5/execution_report.json` records the genuine
+kernel execution counts, source/SVG SHA-256 hashes and GitHub Actions run ID;
+no fabricated execution results are stored.
 
 One normalized source-data file, `examples/s5/data/s5_records.json.xz`,
 is shared by all notebooks and `tests/test_s5_examples.py`. The separate
