@@ -320,17 +320,28 @@ def test_conventional_allocation_labels_are_optional():
 
 def _nuclear_svg_labels(obj, **kwargs):
     svg = obj.to_svg(**kwargs)
+
+    def rendered_glyph(item):
+        kind = item.attrib["data-kind"]
+        count = int(item.attrib["data-count"])
+        if kind == "residual":
+            return "•" * sum(
+                node.tag.rsplit("}", 1)[-1] == "circle" for node in item
+            )
+        if kind == "charge" and count < 0:
+            has_stroke = any(
+                child.attrib.get("class") == "ccs-charge-minus"
+                for child in item
+            )
+            return "".join(item.itertext()) + ("−" if has_stroke else "")
+        return "".join(item.itertext())
+
     labels = [
         {
             "atom": int(item.attrib["data-atom"]),
             "kind": item.attrib["data-kind"],
             "count": int(item.attrib["data-count"]),
-            "glyph": (
-                "•" * sum(c.tag.rsplit("}", 1)[-1] == "circle"
-                          for c in item)
-                if item.attrib["data-kind"] == "residual"
-                else "".join(item.itertext())
-            ),
+            "glyph": rendered_glyph(item),
         }
         for item in ET.fromstring(svg).iter()
         if item.attrib.get("class") == "ccs-nuclear-annotation"
@@ -402,20 +413,24 @@ def test_assignment_imbalance_signs_and_valence_dots(
     ("assigned_electrons", "expected_charge", "expected_glyph"),
     [(9, -1, "−"), (10, -2, "2−")],
 )
-def test_negative_charge_svg_uses_ascii_xml_reference_not_utf8_escape(
+def test_negative_charge_svg_uses_vector_minus_not_utf8_escape(
     assigned_electrons, expected_charge, expected_glyph
 ):
-    """The rendered minus remains U+2212 without raw UTF-8 in the SVG."""
+    """Notebook SVG output must not reintroduce an encoded Unicode minus."""
+    from IPython.display import SVG
+
     d = ElectronAllocation.from_indexed(["O"], [assigned_electrons], [])
     svg = d.to_svg(width=600, height=450)
+    normalized_svg = SVG(data=svg)._repr_svg_()
 
-    # The source is strictly ASCII-safe at the minus glyph, which prevents
-    # viewers from exposing its three UTF-8 bytes as literal backslash codes.
-    assert f"{'2' if expected_charge == -2 else ''}&#8722;</text>" in svg
-    assert "−" not in svg
-    assert r"\xe2\x88\x92" not in svg.lower()
+    # Neither raw Unicode nor XML character references may enter notebook
+    # SVG display data: IPython can turn references back into Unicode.
+    for rendered in (svg, normalized_svg):
+        assert "−" not in rendered
+        assert "&#8722;" not in rendered
+        assert r"\xe2\x88\x92" not in rendered.lower()
 
-    root = ET.fromstring(svg)
+    root = ET.fromstring(normalized_svg)
     charges = [
         node for node in root.iter()
         if node.attrib.get("class") == "ccs-nuclear-annotation"
@@ -423,8 +438,20 @@ def test_negative_charge_svg_uses_ascii_xml_reference_not_utf8_escape(
     ]
     assert len(charges) == 1
     assert charges[0].attrib["data-count"] == str(expected_charge)
-    # An XML/SVG viewer resolves the numeric reference to a true minus sign.
-    assert "".join(charges[0].itertext()) == expected_glyph
+    assert charges[0].tag.endswith("g")
+    lines = [
+        node for node in charges[0]
+        if node.attrib.get("class") == "ccs-charge-minus"
+    ]
+    assert len(lines) == 1
+    assert float(lines[0].attrib["x2"]) > float(lines[0].attrib["x1"])
+    assert "".join(charges[0].itertext()) == (
+        str(-expected_charge) if expected_charge < -1 else ""
+    )
+    _, labels = _nuclear_svg_labels(d, width=600, height=450)
+    assert [
+        v["glyph"] for v in labels if v["kind"] == "charge"
+    ] == [expected_glyph]
 
     png = d.to_png(width=600, height=450)
     with Image.open(BytesIO(png)) as image:

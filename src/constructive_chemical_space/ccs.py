@@ -2507,6 +2507,22 @@ def _ccs_nuclear_annotation_positions(drawer, mol, endpoint_annotations):
     return labels
 
 
+def _ccs_minus_geometry(x: float, charge: int) -> tuple[str, float, float, float]:
+    """Position ASCII magnitude text and a vector minus beside a nucleus.
+
+    No Unicode minus glyph enters SVG markup or PNG text; both backends
+    draw the short horizontal stroke geometrically.
+    """
+    if charge >= 0:
+        raise ValueError("vector minus requires a negative charge")
+    magnitude = str(-charge) if charge < -1 else ""
+    digit_width = 9.0 * len(magnitude)
+    gap = 2.0 if magnitude else 0.0
+    left = x - (digit_width + gap + 9.0) / 2.0
+    minus_start = left + digit_width + gap
+    return magnitude, left + digit_width / 2.0, minus_start, minus_start + 9.0
+
+
 def _ccs_footer(source, source_kind: str, *,
                 show_total_charge: bool, show_hydrogens: bool) -> list[str]:
     lines = [f"N_e = {source.num_electrons}"]
@@ -2647,14 +2663,40 @@ def _render_ccs_svg(
                     "r='2.7' fill='#222222'/>"
                 )
             nuclear_glyphs.append("</g>")
-        else:
-            # XML numeric references avoid raw UTF-8 for charge signs.
-            # In particular, U+2212 must not turn into visible byte escapes
-            # such as \\xe2\\x88\\x92 in SVG/notebook viewers.
-            ascii_glyph = (
-                html.escape(glyph).encode("ascii", "xmlcharrefreplace")
-                .decode("ascii")
+        elif kind == "charge" and count < 0:
+            # Even an XML character reference is decoded back into U+2212
+            # by IPython when notebook SVG data is serialized. Draw a
+            # geometric stroke instead, just as residual dots use circles.
+            digits, digits_x, dash_x1, dash_x2 = _ccs_minus_geometry(x, count)
+            nuclear_glyphs.append(
+                f"<g class='ccs-nuclear-annotation' "
+                f"data-atom='{atom_index}' data-kind='charge' "
+                f"data-count='{count}'>"
             )
+            if digits:
+                nuclear_glyphs.append(
+                    f"<text class='ccs-charge-magnitude' "
+                    f"x='{digits_x:.2f}' y='{y + 4.3:.2f}' "
+                    "text-anchor='middle' font-family='sans-serif' "
+                    "font-size='16px' fill='#222222' stroke='white' "
+                    "stroke-width='3px' paint-order='stroke fill'>"
+                    f"{digits}</text>"
+                )
+            nuclear_glyphs.append(
+                f"<line class='ccs-charge-minus-halo' "
+                f"x1='{dash_x1:.2f}' y1='{y:.2f}' "
+                f"x2='{dash_x2:.2f}' y2='{y:.2f}' "
+                "stroke='white' stroke-width='6' stroke-linecap='round'/>"
+            )
+            nuclear_glyphs.append(
+                f"<line class='ccs-charge-minus' "
+                f"x1='{dash_x1:.2f}' y1='{y:.2f}' "
+                f"x2='{dash_x2:.2f}' y2='{y:.2f}' "
+                "stroke='#222222' stroke-width='2.4' "
+                "stroke-linecap='round'/>"
+            )
+            nuclear_glyphs.append("</g>")
+        else:
             nuclear_glyphs.append(
                 f"<text class='ccs-nuclear-annotation' "
                 f"data-atom='{atom_index}' data-kind='{kind}' "
@@ -2663,7 +2705,7 @@ def _render_ccs_svg(
                 "font-size='16px' fill='#222222' stroke='white' "
                 "stroke-width='3px' stroke-linejoin='round' "
                 "paint-order='stroke fill'>"
-                f"{ascii_glyph}</text>"
+                f"{html.escape(glyph)}</text>"
             )
     nuclear_glyphs.append("</g>")
 
@@ -2795,6 +2837,23 @@ def _render_ccs_png(
                     (dx - 2.7, y - 2.7, dx + 2.7, y + 2.7),
                     fill="#222222",
                 )
+        elif kind == "charge" and count < 0:
+            digits, digits_x, dash_x1, dash_x2 = _ccs_minus_geometry(x, count)
+            start_x = digits_x - 4.5 * len(digits) if digits else dash_x1
+            text_draw.rectangle(
+                (start_x - 3, y - 10, dash_x2 + 3, y + 10),
+                fill="white",
+            )
+            if digits:
+                box = text_draw.textbbox((0, 0), digits, font=nuclear_font)
+                tw, th = box[2] - box[0], box[3] - box[1]
+                text_draw.text(
+                    (digits_x - tw / 2 - box[0], y - th / 2 - box[1]),
+                    digits, fill="#222222", font=nuclear_font,
+                )
+            text_draw.line(
+                (dash_x1, y, dash_x2, y), fill="#222222", width=2,
+            )
         else:
             box = text_draw.textbbox((0, 0), glyph, font=nuclear_font)
             tw, th = box[2] - box[0], box[3] - box[1]
