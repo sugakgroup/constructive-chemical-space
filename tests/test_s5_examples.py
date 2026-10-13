@@ -154,3 +154,25 @@ def test_invalid_record_number_is_rejected():
     for invalid in (-1, 0, 56, True, 1.5, "1"):
         with pytest.raises(ValueError):
             load_record(invalid)
+
+
+@pytest.mark.parametrize("number", range(1, 56),
+                         ids=[f"S5-{i:02d}" for i in range(1, 56)])
+def test_every_s5_notebook_can_render_all_forms(number):
+    """Integration check of every explicit-H figure used by the 55 notebooks."""
+    pytest.importorskip("rdkit")
+    import xml.etree.ElementTree as ET
+
+    example = build_example(number)
+    width = 1500 if len(example.order) > 60 else 950
+    height = 1000 if len(example.order) > 60 else 650
+    objects = [example.constitution, *example.forms.values()]
+    for obj in objects:
+        svg = obj.to_svg(
+            order=example.order, show_hydrogens=True,
+            show_indices=True, show_total_charge=True,
+            width=width, height=height,
+        )
+        ET.fromstring(svg)  # Well-formed SVG, not just a nonempty string.
+        assert f"N_e = {example.constitution.num_electrons}" in svg
+        assert "lossy view" not in svg
