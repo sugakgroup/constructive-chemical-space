@@ -483,147 +483,73 @@ def test_residual_dots_are_svg_vector_circles_not_utf8_text():
     assert labels[0]["glyph"] == "••"
 
 
-@pytest.mark.parametrize(
-    ("number", "expected_style"), [
-        (21, "separated-ligand-layers"),
-        (42, "metal-centered-shell"),
-        (43, "three-bridge-cryptand"),
-        (44, "three-bridge-cryptand"),
-    ],
-)
-def test_cluster_schematics_spread_dense_metal_incidence(number, expected_style):
+@pytest.mark.parametrize("number", [18, 19, 20, 21, 42, 43, 44])
+def test_dense_s5_layout_is_independent_of_element_category(number):
     from examples.s5._common import build_example
     from constructive_chemical_space.ccs import _ccs_render_options
+    from networkx import Graph, check_planarity
+
     example = build_example(number)
     mol, footer, _, _, _ = _ccs_render_options(
-        example.constitution, layout="cluster",
-        order=example.order,
+        example.constitution, layout="auto", order=example.order
     )
-    assert mol.GetProp("_CCSClusterLayoutKind") == expected_style
-    assert mol.GetBoolProp("_CCSNonPlanar2D")
-    assert any("Schematic cluster arrangement" in line for line in footer)
-    assert any("Non-planar graph" in line for line in footer)
-    conf = mol.GetConformer()
-    coordinates = [
-        (conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y)
-        for i in range(mol.GetNumAtoms())
-    ]
-    assert len({(round(x, 2), round(y, 2)) for x, y in coordinates}) >= (
-        mol.GetNumAtoms() - 2
+    assert mol.GetNumAtoms() == len(example.order)
+    assert mol.GetNumBonds() == len(example.constitution.connections)
+    assert mol.GetProp("_CCSLayoutMethod") in {
+        "rdkit", "coordgen", "spring", "planar", "graph"
+    }
+    assert not mol.HasProp("_CCSClusterLayoutKind")
+    graph = Graph()
+    graph.add_nodes_from(range(mol.GetNumAtoms()))
+    graph.add_edges_from(
+        (b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in mol.GetBonds()
     )
-    if number == 42:
-        center = next(i for i, a in enumerate(mol.GetAtoms())
-                      if a.GetSymbol() == "Ni")
-        p = coordinates[center]
-        shell = [
-            hypot(x-p[0],y-p[1]) for i,(x,y) in enumerate(coordinates)
-            if i != center
-        ]
-        assert len(shell) == 12
-        assert max(shell) - min(shell) < 1e-5
-        assert min(shell) > 3
-    elif number in (43, 44):
-        from rdkit import Chem
-        core = next(i for i,a in enumerate(mol.GetAtoms())
-                    if a.GetSymbol() in {"K", "Na"} and a.GetDegree() >= 6)
-        py = coordinates[core][1]
-        # Metal placed outside the three-bridge host, not on a cage atom.
-        ys = [y for i,(x,y) in enumerate(coordinates)
-              if i!=core and mol.GetAtomWithIdx(i).GetSymbol()=="O"]
-        assert max(ys) < py - 2.0
+    planar = check_planarity(graph)[0]
+    assert mol.GetBoolProp("_CCSPlanarGraph") == planar
+    if planar:
+        assert mol.GetIntProp("_CCS2DCrossings") == 0
     else:
-        metal_x = [
-            x for i,(x,y) in enumerate(coordinates)
-            if mol.GetAtomWithIdx(i).GetSymbol()=="Lu"
-        ]
-        assert len(metal_x) == 2
-        assert metal_x[0] != metal_x[1]
-        assert abs(metal_x[0] - metal_x[1]) > 5
+        assert any("Non-planar graph" in line for line in footer)
 
 
-def test_cluster_layout_is_optional_and_does_not_change_ccs_identity():
+def test_old_cluster_specific_layout_flag_is_not_supported():
     from examples.s5._common import build_example
-    d = build_example(42).forms["A"]
-    baseline = d.to_word(order=tuple(build_example(42).order)) if False else d.num_electrons
-    for layout in ("auto", "cluster", "coordgen", "rdkit"):
-        svg = d.to_svg(layout=layout)
-        assert "<svg" in svg
-    assert d.num_electrons == baseline
+    with pytest.raises(ValueError, match="layout"):
+        build_example(18).constitution.to_svg(layout="cluster")
 
 
-
-@pytest.mark.parametrize(
-    ("number", "metals", "expected_style"),
-    [
-        (18, "Fe", "separated-ligand-layers"),
-        (19, "U", "separated-ligand-layers"),
-        (20, "Tb", "separated-ligand-layers"),
-        (21, "Lu", "separated-ligand-layers"),
-        (43, "K", "three-bridge-cryptand"),
-        (44, "Na", "three-bridge-cryptand"),
-    ],
-)
-def test_metals_are_placed_last_outside_ligand_atoms(
-    number, metals, expected_style
-):
+@pytest.mark.parametrize("number", [43, 44])
+def test_generic_spacing_keeps_explicit_h_nuclei_distinct(number):
+    from itertools import combinations
+    from statistics import median
     from examples.s5._common import build_example
     from constructive_chemical_space.ccs import _ccs_render_options
-    d = build_example(number).constitution
-    mol, footer, _, _, _ = _ccs_render_options(d, layout="cluster")
-    planar = number in (18, 19, 20)
-    style = mol.GetProp("_CCSClusterLayoutKind")
-    if planar:
-        # A metal-centered wheel attached to two rings is planar, but a
-        # distant metal and regular rings cannot all use uncrossed straight
-        # lines. Preserve the zero-crossing requirement first.
-        assert style == "planar-metal-clearance"
-        assert mol.GetIntProp("_CCS2DCrossings") == 0
-        assert mol.GetBoolProp("_CCSPlanarGraph")
-        assert not any("Schematic cluster arrangement" in line for line in footer)
-    else:
-        assert style == expected_style
-        assert any("Schematic cluster arrangement" in line for line in footer)
+
+    example = build_example(number)
+    mol, _, _, _, _ = _ccs_render_options(
+        example.constitution, layout="auto", order=example.order
+    )
     conf = mol.GetConformer()
     positions = [
         (conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y)
         for i in range(mol.GetNumAtoms())
     ]
-    selected = [
-        atom.GetIdx() for atom in mol.GetAtoms()
-        if atom.GetSymbol() == metals and atom.GetDegree() >= 6
+    sizes = [
+        hypot(positions[b.GetBeginAtomIdx()][0] -
+              positions[b.GetEndAtomIdx()][0],
+              positions[b.GetBeginAtomIdx()][1] -
+              positions[b.GetEndAtomIdx()][1])
+        for b in mol.GetBonds()
     ]
-    assert selected
-    for idx in selected:
-        x, y = positions[idx]
-        clearance = min(
-            hypot(x - positions[j][0], y - positions[j][1])
-            for j in range(len(positions)) if j != idx
-        )
-        assert clearance > (0.0 if planar else 2.4)
-
-
-
-@pytest.mark.parametrize("number", [43, 44])
-def test_cryptand_explicit_h_positions_are_distinct(number):
-    from examples.s5._common import build_example
-    from constructive_chemical_space.ccs import _ccs_render_options
-    mol, _, _, _, _ = _ccs_render_options(
-        build_example(number).constitution, layout="cluster"
-    )
-    conf = mol.GetConformer()
-    positions = {
-        i: (conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y)
-        for i in range(mol.GetNumAtoms())
-    }
+    typical = median(sizes)
     hydrogens = [
-        atom.GetIdx() for atom in mol.GetAtoms()
-        if atom.GetSymbol() == "H"
+        a.GetIdx() for a in mol.GetAtoms() if a.GetSymbol() == "H"
     ]
-    for i, j in __import__("itertools").combinations(hydrogens, 2):
-        assert hypot(
-            positions[i][0] - positions[j][0],
-            positions[i][1] - positions[j][1],
-        ) > 0.8
+    assert all(
+        hypot(positions[a][0]-positions[b][0],
+              positions[a][1]-positions[b][1]) > 0.10 * typical
+        for a, b in combinations(hydrogens, 2)
+    )
 
 
 def test_residual_dots_remain_close_to_ligand_nuclei():
@@ -649,3 +575,15 @@ def test_residual_dots_remain_close_to_ligand_nuclei():
     atom, _, _, _, x, y = dots[0]
     center = drawer.GetDrawCoords(atom)
     assert hypot(x - center.x, y - center.y) <= 29.1
+
+
+def test_generic_layout_planarity_does_not_depend_on_element_identity():
+    from itertools import combinations
+    from constructive_chemical_space.ccs import _ccs_render_options
+    edges = list(combinations(range(5), 2))
+    for identities in (["C"] * 5, ["N"] * 5):
+        obj = Constitution.from_indexed(identities, edges, 30)
+        mol, _, _, _, _ = _ccs_render_options(obj)
+        assert mol.GetNumBonds() == 10
+        assert not mol.GetBoolProp("_CCSPlanarGraph")
+        assert mol.GetIntProp("_CCS2DCrossings") > 0

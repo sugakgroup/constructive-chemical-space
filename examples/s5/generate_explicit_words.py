@@ -104,11 +104,20 @@ def constitution_code(record: dict) -> str:
         "# Index labels are stored in metadata but omitted from clean figures.",
         "# Both drawing layers use an explicitly crossing-aware 2D layout.",
         "size = len(example.order)",
+        "# Increasing coordinates alone is canceled by RDKit auto-fit.",
+        "# Broaden the actual canvas proportionally to graph congestion.",
+        "degrees = [0] * size",
+        "for i, j in example.record['connections']:",
+        "    degrees[i] += 1",
+        "    degrees[j] += 1",
+        "crowding = min(1.85, 1.0 + 0.11 * max(0, max(degrees, default=0) - 3))",
+        "base_width = 2000 if size > 100 else (1650 if size > 55 else (1250 if size > 20 else 950))",
+        "base_height = 1450 if size > 100 else (1200 if size > 55 else (900 if size > 20 else 700))",
         "draw_options = dict(show_hydrogens=True, show_indices=False,",
         "                    show_total_charge=True, allocation_label_mode='endpoint',",
         "                    layout='auto',",
-        "                    width=2000 if size > 100 else (1650 if size > 55 else (1250 if size > 20 else 950)),",
-        "                    height=1450 if size > 100 else (1200 if size > 55 else (900 if size > 20 else 700)))",
+        "                    width=round(base_width * crowding),",
+        "                    height=round(base_height * crowding))",
     ]
     for form in record["forms"]:
         letter = form["form"]

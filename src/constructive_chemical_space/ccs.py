@@ -2123,565 +2123,133 @@ def _ccs_segment_intersections(mol) -> int:
 
 
 
-def _ccs_cluster_fragment_positions(mol, graph, nodes):
-    """Layout an isolated ligand fragment without a metal-incidence tangle.
-
-    A temporary all-single-stroke *drawing graph* is used only to derive 2D
-    coordinates; none of its RDKit chemical annotations enter the CCS form.
-    """
-    from rdkit import Chem
-    from rdkit.Chem import rdCoordGen, rdDepictor
-    original = tuple(sorted(nodes))
-    address = {old: i for i, old in enumerate(original)}
-    working = Chem.RWMol()
-    for _ in original:
-        atom = Chem.Atom("C")
-        atom.SetNoImplicit(True)
-        working.AddAtom(atom)
-    for a, b in sorted(graph.subgraph(original).edges()):
-        working.AddBond(address[a], address[b], Chem.BondType.SINGLE)
-    tmp = working.GetMol()
-    tmp.UpdatePropertyCache(strict=False)
-    try:
-        rdCoordGen.AddCoords(tmp)
-    except (RuntimeError, ValueError):
-        rdDepictor.Compute2DCoords(tmp)
-    conf = tmp.GetConformer()
-    return {
-        old: (float(conf.GetAtomPosition(i).x), float(conf.GetAtomPosition(i).y))
-        for i, old in enumerate(original)
-    }
-
-
-def _ccs_place_metals_last(graph, fixed_positions, hubs, preferences):
-    """Place metal centers after fixed ligand fragments in empty 2D space.
-
-    Candidate positions are deterministic and scored by proximity to
-    ligand nuclei, overlap with ligand bonds, crossings of incidence lines,
-    and unnecessary metal-to-ligand distance. Coordinates are only a
-    downstream diagram: all original nuclear incidences are kept.
-    """
-    positions = dict(fixed_positions)
-    hubs = tuple(sorted(hubs))
-    if len(positions) + len(hubs) != graph.number_of_nodes():
-        raise ValueError("All non-metal nuclei must be placed before metals")
-    ligand_nodes = frozenset(fixed_positions)
-    ligand_edges = [
-        (a, b) for a, b in graph.edges()
-        if a in ligand_nodes and b in ligand_nodes
-    ]
-    baseline = tuple(fixed_positions.values())
-    min_y = min(y for _, y in baseline)
-    max_y = max(y for _, y in baseline)
-
-    def proper_cross(p, q, r, u):
-        def cross(a, b, c):
-            return ((b[0] - a[0]) * (c[1] - a[1])
-                    - (b[1] - a[1]) * (c[0] - a[0]))
-        return (
-            cross(p, q, r) * cross(p, q, u) < -1e-8
-            and cross(r, u, p) * cross(r, u, q) < -1e-8
-        )
-
-    for hub in hubs:
-        px, py = preferences[hub]
-        connected = [
-            v for v in graph.neighbors(hub) if v in fixed_positions
-        ]
-        possible_x = (px, px - 1.4, px + 1.4, px - 3.0, px + 3.0)
-        possible_y = (
-            py, max_y + 2.6, min_y - 2.6,
-            max_y + 4.0, min_y - 4.0, 0.0,
-        )
-        candidates = []
-        for y in possible_y:
-            for x in possible_x:
-                proposal = (x, y)
-                score = 0.3 * hypot(x - px, y - py)
-                # Keep the metal symbol clear of ligand nuclei and other
-                # metals, even in densely connected organometallic cages.
-                for other, (qx, qy) in positions.items():
-                    distance = hypot(x - qx, y - qy)
-                    clearance = 4.0 if other in hubs else 2.4
-                    if distance < clearance:
-                        score += 300.0 * (clearance - distance) ** 2
-                for a, b in ligand_edges:
-                    q, r = positions[a], positions[b]
-                    vx, vy = r[0] - q[0], r[1] - q[1]
-                    divisor = vx * vx + vy * vy
-                    if divisor < 1e-10:
-                        continue
-                    fraction = min(1.0, max(
-                        0.0, ((x - q[0]) * vx + (y - q[1]) * vy) / divisor
-                    ))
-                    sep = hypot(
-                        x - (q[0] + fraction * vx),
-                        y - (q[1] + fraction * vy),
-                    )
-                    if sep < 0.8:
-                        score += 100.0 * (0.8 - sep) ** 2
-                for neighbor in connected:
-                    target = positions[neighbor]
-                    score += 0.035 * hypot(
-                        x - target[0], y - target[1]
-                    )
-                    for a, b in ligand_edges:
-                        if neighbor in (a, b):
-                            continue
-                        if proper_cross(
-                            proposal, target, positions[a], positions[b]
-                        ):
-                            score += 9.0
-                candidates.append((score, x, y))
-        _, x, y = min(candidates)
-        positions[hub] = (x, y)
-    return positions
-
-
-def _ccs_fanout_cryptand_h(graph, symbols, heavy, positions):
-    """Place every explicit H separately around its attached heavy nucleus.
-
-    Hydrogen positions are determined *after* the three bridge heavy-atom
-    chains, with deterministic angular fanout and repulsion from all already
-    placed nuclei. This also avoids collisions across adjacent parents.
-    """
-    heavy = frozenset(heavy)
-    fixed = dict(positions)
-    cx = sum(fixed[v][0] for v in heavy) / len(heavy)
-    cy = sum(fixed[v][1] for v in heavy) / len(heavy)
-    for parent in sorted(heavy):
-        hydrogens = sorted(
-            h for h in graph.neighbors(parent) if symbols[h] == "H"
-        )
-        if not hydrogens:
-            continue
-        px, py = fixed[parent]
-        away_x = away_y = 0.0
-        for other in graph.neighbors(parent):
-            if other not in heavy:
-                continue
-            qx, qy = fixed[other]
-            length = max(1e-9, hypot(qx - px, qy - py))
-            away_x -= (qx - px) / length
-            away_y -= (qy - py) / length
-        if hypot(away_x, away_y) < 1e-5:
-            away_x, away_y = px - cx, py - cy
-        if hypot(away_x, away_y) < 1e-5:
-            away_x, away_y = 0.0, 1.0
-        from math import atan2
-        axis = atan2(away_y, away_x)
-        if len(hydrogens) == 1:
-            offsets = [0.0]
-        elif len(hydrogens) == 2:
-            offsets = [-0.6, 0.6]
-        else:
-            offsets = [0.0] + [
-                (-0.6 * ((k + 1) // 2) if k % 2 else
-                 0.6 * (k // 2))
-                for k in range(1, len(hydrogens))
-            ]
-        for h, base_offset in zip(hydrogens, offsets):
-            candidates = []
-            for angular_change in (
-                0.0, -0.35, 0.35, -0.7, 0.7, -1.05, 1.05, pi
-            ):
-                for distance in (1.48, 1.8, 2.15):
-                    angle = axis + base_offset + angular_change
-                    x = px + distance * cos(angle)
-                    y = py + distance * sin(angle)
-                    score = (
-                        2.0 * abs(angular_change)
-                        + 0.7 * abs(distance - 1.48)
-                    )
-                    for other, (ox, oy) in positions.items():
-                        if other == parent:
-                            continue
-                        separation = hypot(x - ox, y - oy)
-                        if separation < 1.15:
-                            score += 300.0 * (1.16 - separation) ** 2
-                    candidates.append((score, x, y))
-            _, x, y = min(candidates)
-            positions[h] = (x, y)
-    return positions
-
-
-def _ccs_cluster_positions(mol, graph):
-    """Return a schematic, deliberately nonphysical coordination layout.
-
-    Two types are distinguished by graph structure, not named S5 records:
-    metal-connected cage shells and several independent macrocycle ligands.
-    Cryptand-like N–(three paths)–N scaffolds get three separated arches.
-    """
-    import networkx as nx
-    symbols = {i: mol.GetAtomWithIdx(i).GetSymbol() for i in graph.nodes()}
-    # Lead belongs to the p-block cage rather than the coordination hubs.
-    # For ordinary organometallic examples require an actual highly incident
-    # non-p-block metal, not just a 3-connected N or C atom.
-    non_hub = {"H", "B", "C", "N", "O", "F", "P", "S",
-               "Se", "Cl", "Br", "I", "At", "Pb"}
-    hubs = [
-        i for i in sorted(graph)
-        if graph.degree(i) >= 6 and symbols[i] not in non_hub
-    ]
-    if not 1 <= len(hubs) <= 2:
-        return None
-
-    rest = graph.copy()
-    rest.remove_nodes_from(hubs)
-    components = sorted(nx.connected_components(rest), key=min)
-    large = [group for group in components if len(group) >= 6]
-
-    if len(hubs) == 1 and len(large) == 1:
-        hub = hubs[0]
-        scaffold = large[0]
-        # A theta graph of three independent arms (e.g. 2.2.2 cryptand):
-        # its bridge atoms are spread in three rows rather than overplotted.
-        heavy = [
-            v for v in scaffold if symbols[v] not in {"H", "K", "Na"}
-        ]
-        heavy_graph = rest.subgraph(heavy)
-        bridge_ends = [
-            v for v in heavy_graph if symbols[v] == "N"
-            and heavy_graph.degree(v) == 3
-        ]
-        if 20 <= len(heavy) <= 35 and len(bridge_ends) == 2:
-            endpoints = sorted(bridge_ends)
-            arms = list(nx.all_simple_paths(
-                heavy_graph, endpoints[0], endpoints[1], cutoff=35
-            ))
-            if (len(arms) == 3
-                    and len({len(path) for path in arms}) == 1
-                    and all(len(path) >= 5 for path in arms)
-                    and len(set(v for path in arms for v in path[1:-1]))
-                    == len(arms) * (len(arms[0]) - 2)):
-                arms.sort(key=lambda path: min(path[1:-1]))
-                positions = {}
-                arm_numbers = {}
-                for arm_i, path in enumerate(arms):
-                    amplitude = (4.0, 0.0, -4.0)[arm_i]
-                    for j, v in enumerate(path):
-                        fraction = j / (len(path) - 1)
-                        x = -9.0 + 18.0 * fraction
-                        y = amplitude * sin(pi * fraction)
-                        positions[v] = (x, y)
-                        if v not in endpoints:
-                            arm_numbers[v] = arm_i
-                # The scaffold is complete before attached H and metal.
-                positions = _ccs_fanout_cryptand_h(
-                    graph, symbols, heavy, positions
-                )
-                # Unconnected counterions remain distinct from the host.
-                for k, group in enumerate(components):
-                    if group == scaffold:
-                        continue
-                    for j, v in enumerate(sorted(group)):
-                        positions[v] = (-14.0 - 4.0 * k, 8.0 + j * 2.0)
-                neighbor_x = [
-                    positions[v][0] for v in graph.neighbors(hub)
-                    if v in positions
-                ]
-                preferred = (
-                    sum(neighbor_x) / len(neighbor_x)
-                    if neighbor_x else 0.0,
-                    max(y for _, y in positions.values()) + 2.8,
-                )
-                # A metal is inserted LAST, sufficiently outside the
-                # three explicitly drawn ligand bridges.
-                positions = _ccs_place_metals_last(
-                    graph, positions, (hub,), {hub: preferred}
-                )
-                if len(positions) == mol.GetNumAtoms():
-                    return positions, "three-bridge-cryptand"
-
-    if 2 <= len(large) <= 4:
-        local = [
-            _ccs_cluster_fragment_positions(mol, graph, group)
-            for group in large
-        ]
-        spans = [
-            max(x for x, _ in xy.values()) - min(x for x, _ in xy.values())
-            for xy in local
-        ]
-        gap = max(spans) + 8.0
-        centers = [
-            (i - (len(large) - 1) / 2.0) * gap
-            for i in range(len(large))
-        ]
-        coords = {}
-        for center, fragment in zip(centers, local):
-            mx = sum(x for x, _ in fragment.values()) / len(fragment)
-            my = sum(y for _, y in fragment.values()) / len(fragment)
-            coords.update({
-                v: (x - mx + center, y - my)
-                for v, (x, y) in fragment.items()
-            })
-        for k, group in enumerate(components):
-            if group in large:
-                continue
-            independent = _ccs_cluster_fragment_positions(
-                mol, graph, group
-            )
-            for v, (x, y) in independent.items():
-                coords[v] = (min(centers) - gap - 5.0 * k + x, y)
-        # Only after EVERY ligand and hydrogen is placed, choose metal
-        # positions away from nuclei and connection strokes. For two metals
-        # stagger on opposite sides of the ligand sequence; this helps
-        # visually resolve the dense Lu2(Pc)3 and Cp sandwich incidences.
-        ys = [y for _, y in coords.values()]
-        top, bottom = max(ys), min(ys)
-        preferred = {}
-        for k, hub in enumerate(sorted(hubs)):
-            adjacent_fragments = [
-                i for i, group in enumerate(large)
-                if any(graph.has_edge(hub, v) for v in group)
-            ]
-            mx = (
-                sum(centers[i] for i in adjacent_fragments)
-                / len(adjacent_fragments)
-                if adjacent_fragments else max(centers) + gap
-            )
-            preferred[hub] = (
-                mx, top + 2.7 if k % 2 == 0 else bottom - 2.7
-            )
-        coords = _ccs_place_metals_last(graph, coords, hubs, preferred)
-        if len(coords) == mol.GetNumAtoms():
-            return coords, "separated-ligand-layers"
-
-    if len(hubs) == 1 and len(large) == 1:
-        hub, scaffold = hubs[0], large[0]
-        inner = rest.subgraph(scaffold)
-        degree_mean = (
-            sum(inner.degree(v) for v in scaffold) / len(scaffold)
-        )
-        if 10 <= len(scaffold) <= 16 and degree_mean >= 4.0:
-            # A central kernel and surrounding connected outer cage.
-            spring = nx.spring_layout(
-                inner, seed=23, iterations=280
-            )
-            ring = sorted(
-                scaffold,
-                key=lambda v: (
-                    __import__("math").atan2(spring[v][1], spring[v][0]), v
-                )
-            )
-            radius = max(6.0, len(ring) / 2.0)
-            coords = {hub: (0.0, 0.0)}
-            for j, v in enumerate(ring):
-                theta = 2.0 * pi * j / len(ring)
-                coords[v] = (
-                    radius * cos(theta), radius * sin(theta)
-                )
-            if len(coords) == mol.GetNumAtoms():
-                return coords, "metal-centered-shell"
-        if len(scaffold) >= 20:
-            # Pull high-incidence metal away from a dense organic host graph.
-            coords = _ccs_cluster_fragment_positions(
-                mol, graph, scaffold
-            )
-            max_x = max(x for x, _ in coords.values())
-            min_x = min(x for x, _ in coords.values())
-            neighbors = [
-                coords[v][1] for v in graph.neighbors(hub)
-                if v in coords
-            ]
-            for k, group in enumerate(components):
-                if group == scaffold:
-                    continue
-                other = _ccs_cluster_fragment_positions(
-                    mol, graph, group
-                )
-                for v, (x, y) in other.items():
-                    coords[v] = (min_x - 7.0 - 4.0 * k + x, y)
-            preferred = {
-                hub: (
-                    max_x + 4.0,
-                    sum(neighbors) / len(neighbors) if neighbors else 0.0,
-                )
-            }
-            coords = _ccs_place_metals_last(
-                graph, coords, (hub,), preferred
-            )
-            if len(coords) == mol.GetNumAtoms():
-                return coords, "separated-metal-host"
-    return None
-
-
-def _ccs_apply_cluster_geometry(mol, graph):
-    """Install a reproducible schematic 2D layout if a cluster motif exists."""
-    from rdkit import Chem
-    candidate = _ccs_cluster_positions(mol, graph)
-    if candidate is None:
-        return False
-    positions, style = candidate
-    if len(positions) != mol.GetNumAtoms():
-        return False
-    conf = Chem.Conformer(mol.GetNumAtoms())
-    for i in range(mol.GetNumAtoms()):
-        x, y = positions[i]
-        conf.SetAtomPosition(i, (float(x), float(y), 0.0))
-    mol.RemoveAllConformers()
-    mol.AddConformer(conf, assignId=True)
-    mol.SetProp("_CCSClusterLayoutKind", style)
-    return True
-
-
-def _ccs_relax_planar_metal_clearance(mol, graph):
-    """Improve metal-to-atom clearance within a crossing-free embedding.
-
-    Some metal wheels joined at their metal vertex (e.g. Cp sandwich
-    complexes) are abstractly planar, but a regular ligand-ring drawing with
-    metal fully outside would introduce straight-line crossings. In the
-    guaranteed planar layout, move each metal last among crossing-free
-    candidate positions, without changing fixed ligand coordinates.
-    """
-    from statistics import median
-    conf = mol.GetConformer()
-    symbols = {
-        atom.GetIdx(): atom.GetSymbol() for atom in mol.GetAtoms()
-    }
-    p_block = {"H", "B", "C", "N", "O", "F", "P", "S",
-               "Se", "Cl", "Br", "I", "At", "Pb"}
-    hubs = [
-        i for i in sorted(graph)
-        if graph.degree(i) >= 6 and symbols[i] not in p_block
-    ]
-    if not hubs or graph.number_of_edges() == 0:
-        return
-    lengths = [
-        hypot(
-            conf.GetAtomPosition(a).x - conf.GetAtomPosition(b).x,
-            conf.GetAtomPosition(a).y - conf.GetAtomPosition(b).y
-        )
-        for a, b in graph.edges()
-    ]
-    bond_scale = max(1e-6, median(lengths))
-    adjusted = False
-    for hub in hubs:
-        original = conf.GetAtomPosition(hub)
-        bx, by = original.x, original.y
-        neighbors = tuple(graph.neighbors(hub))
-        other = [
-            i for i in range(mol.GetNumAtoms()) if i != hub
-        ]
-
-        def clearance(x, y):
-            return min(
-                hypot(
-                    x - conf.GetAtomPosition(i).x,
-                    y - conf.GetAtomPosition(i).y
-                )
-                for i in other
-            )
-
-        original_clearance = clearance(bx, by)
-        # High-clearance metal positions require no perturbation. Additional
-        # search on very large, already-clear frameworks adds no readability.
-        if original_clearance >= 0.65 * bond_scale:
-            continue
-        best = (original_clearance, -0.0, bx, by)
-        for step in (0.25, 0.50, 0.80, 1.15, 1.65, 2.30, 3.20):
-            radius = step * bond_scale
-            for k in range(36):
-                angle = 2.0 * pi * k / 36.0
-                x = bx + radius * cos(angle)
-                y = by + radius * sin(angle)
-                conf.SetAtomPosition(hub, (x, y, 0.0))
-                if _ccs_segment_intersections(mol):
-                    continue
-                nearest = clearance(x, y)
-                avg_len = sum(
-                    hypot(
-                        x - conf.GetAtomPosition(i).x,
-                        y - conf.GetAtomPosition(i).y,
-                    ) for i in neighbors
-                ) / max(1, len(neighbors))
-                # Improvement in nucleus clearance dominates shorter
-                # metal-incidence lines. Do not place the metal arbitrarily
-                # far away from all ligand atoms.
-                score = nearest - 0.012 * avg_len - 0.035 * radius
-                if (score, -radius, x, y) > best:
-                    best = (score, -radius, x, y)
-        conf.SetAtomPosition(hub, (best[2], best[3], 0.0))
-        adjusted |= hypot(best[2] - bx, best[3] - by) > 1e-10
-    mol.SetBoolProp("_CCSPlanarMetalAdjusted", adjusted)
-
-
 def _ccs_layout_2d(mol, layout: str) -> None:
-    """Prefer legible CoordGen geometry; enforce no crossings when planar.
+    """A single graph-based 2D layout pipeline for every nuclear identity.
 
-    By Fáry's theorem a planar simple graph admits a crossing-free
-    straight-line embedding. A non-planar graph cannot meet that requirement
-    in 2D, and is labelled explicitly rather than silently misrepresented.
+    Candidate coordinates are ranked only by crossings, nonbonded atom
+    crowding and extreme connection distances. No metal, ligand, cluster,
+    element identity or named example gets a special geometry rule.
     """
+    from math import isfinite
+    from statistics import median
+    from rdkit import Chem
     from rdkit.Chem import rdDepictor
-    try:
-        import networkx as nx
-    except ImportError as exc:
-        raise CCSVisualizationError(
-            "Crossing-aware 2D depiction requires networkx; "
-            "install the CCS visualization extra"
-        ) from exc
+    import networkx as nx
 
     graph = nx.Graph()
     graph.add_nodes_from(range(mol.GetNumAtoms()))
     graph.add_edges_from(
-        (edge.GetBeginAtomIdx(), edge.GetEndAtomIdx())
-        for edge in mol.GetBonds()
+        (b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in mol.GetBonds()
     )
     planar, _ = nx.check_planarity(graph)
     mol.SetBoolProp("_CCSPlanarGraph", bool(planar))
-    # Structurally separated ligands, cage shells, and three-bridge hosts are
-    # far more readable than generic 2D geometry around a high-degree metal.
-    # This is schematic graph layout, not a calculated molecular geometry.
-    done = False
-    if layout in {"auto", "cluster"}:
-        done = _ccs_apply_cluster_geometry(mol, graph)
-    use_coordgen = (
-        layout == "coordgen"
-        or (layout in {"auto", "cluster"} and mol.GetNumAtoms() >= 8
-            and mol.GetNumBonds() >= 6)
-    )
-    if use_coordgen and not done:
-        try:
-            from rdkit.Chem import rdCoordGen
-            rdCoordGen.AddCoords(mol)
-            done = mol.GetNumAtoms() == 0 or mol.GetNumConformers() > 0
-        except (ImportError, RuntimeError, ValueError) as exc:
-            if layout == "coordgen":
-                raise CCSVisualizationError(
-                    "CoordGen could not arrange the supplied CCS graph"
-                ) from exc
-    if not done:
-        rdDepictor.Compute2DCoords(mol)
 
-    crossing_count = _ccs_segment_intersections(mol)
-    if planar and crossing_count > 0:
-        # networkx's planar embedding uses straight segments with no
-        # unrelated edge crossings, unlike an unconstrained molecule sketch.
+    def capture():
+        if not mol.GetNumAtoms():
+            return ()
+        if not mol.GetNumConformers():
+            return None
+        conf = mol.GetConformer()
+        xy = tuple(
+            (float(conf.GetAtomPosition(i).x),
+             float(conf.GetAtomPosition(i).y)) for i in graph
+        )
+        return xy if all(isfinite(x) and isfinite(y)
+                         for x, y in xy) else None
+
+    def install(xy):
+        conf = Chem.Conformer(mol.GetNumAtoms())
+        for i, (x, y) in enumerate(xy):
+            conf.SetAtomPosition(i, (float(x), float(y), 0.0))
+        mol.RemoveAllConformers()
+        mol.AddConformer(conf, assignId=True)
+
+    def penalty(xy, crossings):
+        if not graph.number_of_edges():
+            return float(crossings)
+        edges = [
+            hypot(xy[a][0] - xy[b][0], xy[a][1] - xy[b][1])
+            for a, b in graph.edges()
+        ]
+        scale = median(edges)
+        if not isfinite(scale) or scale < 1e-10:
+            return float("inf")
+        result = sum(
+            12.0 * max(0.0, 0.55 - d / scale) ** 2
+            + 0.1 * max(0.0, d / scale - 2.5) ** 2
+            for d in edges
+        )
+        for i in range(len(xy)):
+            for j in range(i + 1, len(xy)):
+                if graph.has_edge(i, j):
+                    continue
+                distance = hypot(xy[i][0] - xy[j][0],
+                                 xy[i][1] - xy[j][1])
+                result += 180.0 * max(
+                    0.0, 0.70 - distance / scale
+                ) ** 2
+        return result + 5.0 * crossings
+
+    candidates = []
+    for method in (("rdkit", "coordgen") if layout == "auto"
+                   else (layout,)):
         try:
-            xy = nx.planar_layout(graph)
-            if mol.GetNumAtoms() > 0:
-                conf = mol.GetConformer()
-                for i in range(mol.GetNumAtoms()):
-                    p = xy[i]
-                    conf.SetAtomPosition(i, (float(p[0]), float(p[1]), 0.0))
-            crossing_count = _ccs_segment_intersections(mol)
-            if mol.HasProp("_CCSClusterLayoutKind"):
-                _ccs_relax_planar_metal_clearance(mol, graph)
-                mol.SetProp(
-                    "_CCSClusterLayoutKind", "planar-metal-clearance"
-                )
-                crossing_count = _ccs_segment_intersections(mol)
-        except Exception as exc:
+            if method == "rdkit":
+                rdDepictor.Compute2DCoords(mol)
+            else:
+                from rdkit.Chem import rdCoordGen
+                rdCoordGen.AddCoords(mol)
+            xy = capture()
+            if xy is not None:
+                crosses = _ccs_segment_intersections(mol)
+                candidates.append((
+                    (bool(planar and crosses), penalty(xy, crosses)),
+                    method, xy, crosses
+                ))
+        except (RuntimeError, ValueError, ImportError) as exc:
+            if layout != "auto":
+                raise CCSVisualizationError(
+                    f"2D layout with {layout!r} failed"
+                ) from exc
+
+    # One general repulsive layout for high-degree OR nonplanar graphs.
+    max_degree = max((d for _, d in graph.degree()), default=0)
+    if layout == "auto" and (max_degree >= 5 or not planar):
+        spread = nx.spring_layout(graph, seed=23, iterations=90)
+        xy = tuple(tuple(map(float, spread[i])) for i in graph)
+        install(xy)
+        crosses = _ccs_segment_intersections(mol)
+        candidates.append((
+            (bool(planar and crosses), penalty(xy, crosses)),
+            "spring", xy, crosses
+        ))
+
+    if not candidates:
+        fallback = (nx.planar_layout(graph) if planar else
+                    nx.spring_layout(graph, seed=23, iterations=90))
+        xy = tuple(tuple(map(float, fallback[i])) for i in graph)
+        install(xy)
+        candidates.append((
+            (False, 0.0), "graph", xy,
+            _ccs_segment_intersections(mol)
+        ))
+
+    _, method, xy, crosses = min(
+        candidates, key=lambda candidate: (candidate[0], candidate[1])
+    )
+    install(xy)
+    if planar and crosses:
+        # A planar simple graph has a crossing-free straight-line embedding.
+        embedding = nx.planar_layout(graph)
+        install(tuple(tuple(map(float, embedding[i])) for i in graph))
+        method = "planar"
+        crosses = _ccs_segment_intersections(mol)
+        if crosses:
             raise CCSVisualizationError(
-                "A planar graph could not be laid out without crossing"
-            ) from exc
-        if crossing_count:
-            raise CCSVisualizationError(
-                f"Planar graph still contains {crossing_count} "
-                "unrelated line crossings in 2D"
+                f"Planar graph has {crosses} residual straight-edge crossings"
             )
-    mol.SetIntProp("_CCS2DCrossings", crossing_count)
+    mol.SetProp("_CCSLayoutMethod", method)
+    mol.SetIntProp("_CCS2DCrossings", crosses)
     mol.SetBoolProp("_CCSNonPlanar2D", not planar)
 
 
@@ -2815,8 +2383,8 @@ def _ccs_render_options(
         raise TypeError("show_hydrogens must be a boolean; default is True")
     if allocation_label_mode not in {"endpoint", "bond", "none"}:
         raise ValueError("allocation_label_mode must be endpoint, bond or none")
-    if layout not in {"auto", "coordgen", "rdkit", "cluster"}:
-        raise ValueError("layout must be 'auto', 'coordgen', 'rdkit' or 'cluster'")
+    if layout not in {"auto", "coordgen", "rdkit"}:
+        raise ValueError("layout must be 'auto', 'coordgen' or 'rdkit'")
 
     source, display_order, kind = _visual_source(obj, view=view, order=order)
     mol = _build_ccs_visual_mol(
@@ -2841,10 +2409,6 @@ def _ccs_render_options(
     )
     if mol.GetBoolProp("_CCSNonPlanar2D"):
         footer.append("Non-planar graph: crossings unavoidable in 2D")
-    if mol.HasProp("_CCSClusterLayoutKind") and (
-        not mol.GetProp("_CCSClusterLayoutKind").startswith("planar-")
-    ):
-        footer.append("Schematic cluster arrangement (not a 3D geometry)")
     footer_height = max(40, 8 + len(footer) * (footer_font_size + 3))
     drawing_height = height - footer_height
     if drawing_height < 80:

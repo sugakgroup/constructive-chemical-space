@@ -51,9 +51,9 @@ jobs:
             tests/test_visualization.py::test_assignment_imbalance_signs_and_valence_dots \
             tests/test_visualization.py::test_2d_planar_K4_has_zero_straight_line_crossings \
             tests/test_visualization.py::test_nonplanar_K5_is_detected_and_accurately_warned \
-            tests/test_visualization.py::test_cluster_schematics_spread_dense_metal_incidence \
-            tests/test_visualization.py::test_metals_are_placed_last_outside_ligand_atoms \
-            tests/test_visualization.py::test_cryptand_explicit_h_positions_are_distinct \
+            tests/test_visualization.py::test_dense_s5_layout_is_independent_of_element_category \
+            tests/test_visualization.py::test_old_cluster_specific_layout_flag_is_not_supported \
+            tests/test_visualization.py::test_generic_spacing_keeps_explicit_h_nuclei_distinct \
             tests/test_visualization.py::test_residual_dots_remain_close_to_ligand_nuclei \
             tests/test_visualization.py::test_residual_dots_are_svg_vector_circles_not_utf8_text \
             tests/test_s5_examples.py::test_record13_bisperiazulene_author_corrected_formB_C \
