@@ -397,6 +397,41 @@ def test_assignment_imbalance_signs_and_valence_dots(
         assert d.assignment_imbalance(i) == i.identity.atomic_number - d.assigned_electrons(i)
 
 
+
+@pytest.mark.parametrize(
+    ("assigned_electrons", "expected_charge", "expected_glyph"),
+    [(9, -1, "−"), (10, -2, "2−")],
+)
+def test_negative_charge_svg_uses_ascii_xml_reference_not_utf8_escape(
+    assigned_electrons, expected_charge, expected_glyph
+):
+    """The rendered minus remains U+2212 without raw UTF-8 in the SVG."""
+    d = ElectronAllocation.from_indexed(["O"], [assigned_electrons], [])
+    svg = d.to_svg(width=600, height=450)
+
+    # The source is strictly ASCII-safe at the minus glyph, which prevents
+    # viewers from exposing its three UTF-8 bytes as literal backslash codes.
+    assert f"{'2' if expected_charge == -2 else ''}&#8722;</text>" in svg
+    assert "−" not in svg
+    assert r"\\xe2\\x88\\x92" not in svg.lower()
+
+    root = ET.fromstring(svg)
+    charges = [
+        node for node in root.iter()
+        if node.attrib.get("class") == "ccs-nuclear-annotation"
+        and node.attrib.get("data-kind") == "charge"
+    ]
+    assert len(charges) == 1
+    assert charges[0].attrib["data-count"] == str(expected_charge)
+    # An XML/SVG viewer resolves the numeric reference to a true minus sign.
+    assert "".join(charges[0].itertext()) == expected_glyph
+
+    png = d.to_png(width=600, height=450)
+    with Image.open(BytesIO(png)) as image:
+        assert image.format == "PNG"
+        assert image.size == (600, 450)
+
+
 def test_non_p_block_and_hydrogen_have_no_valence_dot_depicton():
     d = ElectronAllocation.from_indexed(
         ["He", "H", "Fe"], [2, 1, 26], []

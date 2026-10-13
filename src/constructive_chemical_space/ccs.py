@@ -2648,6 +2648,13 @@ def _render_ccs_svg(
                 )
             nuclear_glyphs.append("</g>")
         else:
+            # XML numeric references avoid raw UTF-8 for charge signs.
+            # In particular, U+2212 must not turn into visible byte escapes
+            # such as \\xe2\\x88\\x92 in SVG/notebook viewers.
+            ascii_glyph = (
+                html.escape(glyph).encode("ascii", "xmlcharrefreplace")
+                .decode("ascii")
+            )
             nuclear_glyphs.append(
                 f"<text class='ccs-nuclear-annotation' "
                 f"data-atom='{atom_index}' data-kind='{kind}' "
@@ -2656,7 +2663,7 @@ def _render_ccs_svg(
                 "font-size='16px' fill='#222222' stroke='white' "
                 "stroke-width='3px' stroke-linejoin='round' "
                 "paint-order='stroke fill'>"
-                f"{html.escape(glyph)}</text>"
+                f"{ascii_glyph}</text>"
             )
     nuclear_glyphs.append("</g>")
 
