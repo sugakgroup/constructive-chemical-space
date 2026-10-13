@@ -247,10 +247,21 @@ The older central indexed label can be obtained with
 `allocation_label_mode="none"`. `label_all_allocations=True` also annotates
 otherwise conventional glyphs such as `(1,1)`. The same endpoint-label
 placement is implemented in SVG and PNG.
-The SI S1.4 auxiliary assignment imbalance `q_v=Z(X(v))-n_v` is shown as
-`q=+1` / `q=-1` atom notes where nonzero, **not** as an RDKit/Lewis formal
-charge. `diagnostics=True` additionally displays `n`, residual electron
-count `r`, and `q`.
+For **group-13–17 nuclei** (excluding H), the electron-allocation
+view also displays each residual **valence** electron as a dot: the count is
+`r_v - (Z_v - (group_v - 10))`, where `r_v = n_v - Σ_s a_{v,s}`.
+Thus neutral amine nitrogen gives `••` and water oxygen gives four dots.
+This is an allocation accounting display, **not a calculated radical spin or
+lone-pair orbital assignment**. If the count exceeds eight, the plot uses a
+numeric residual annotation instead of crowding the picture; negative valence
+remainders are not invented as electrons.
+
+The S1.4 auxiliary assignment imbalance `q_v = Z_v - n_v` is shown as
+compact atom-local `+`, `−`, `2−` etc. (SVG-annotated explicitly as a
+**CCS assignment imbalance**, not an independently proven Lewis/RDKit formal
+charge). `diagnostics=True` still shows `n`, total residual `r`, and
+`q` as optional debugging notes. Both valence dots and q symbols are
+annotations only, never RDKit charge/radical properties.
 
 `show_hydrogens=False` is an **explicit opt-in, lossy simplified depiction**:
 it omits H nuclei *and their connections* from the picture, including bridging
@@ -258,9 +269,17 @@ or isotope-resolved hydrogen. Such images are marked `H omitted - lossy view`.
 They must not be treated as complete CCS constitutions or as faithful molecular
 identity diagrams.
 
+For crossing-aware 2D depiction, the optional `networkx` dependency checks
+whether the direct-connection graph is planar. `layout="auto"` selects
+CoordGen on suitable graphs and, when needed, falls back to a mathematically
+crossing-free straight-line planar embedding. For genuinely **nonplanar** graphs
+no zero-crossing 2D drawing exists: the figure explicitly warns that
+crossings are unavoidable. No speculative 3D geometry is generated.
+
 For reproducible indexed diagrams use `order=(...)` with the exact nucleus
 objects of the source form, or show a `Word` / `PracticalWord` (which preserves
-replay address order). Intrinsic CCS objects do not have canonical nuclear
+replay address order). Temporary `#index` labels are **off by default**; use
+`show_indices=True` only for diagnostics. Intrinsic CCS objects do not have canonical nuclear
 numbering. The visualization never mutates the CCS object or changes replay.
 
 RDKit depiction is downstream and non-normative. In particular, line styles,
