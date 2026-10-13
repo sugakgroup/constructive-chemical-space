@@ -1,5 +1,6 @@
 """Optional visualization regression tests using installed CCS package objects."""
 from io import BytesIO
+from math import hypot
 import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
