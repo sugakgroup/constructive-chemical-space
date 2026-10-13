@@ -51,11 +51,23 @@ def test_each_notebook_structure_and_manifest_matches_source(number):
     assert entry["name"] in "".join(obj["cells"][0]["source"])
     source_cells = ["".join(cell["source"]) for cell in obj["cells"]
                     if cell["cell_type"] == "code"]
-    assert f"build_example({number})" in "\n".join(source_cells)
-    assert "verify_example(example)" in "\n".join(source_cells)
-    assert "example.constitution.show(" in "\n".join(source_cells)
-    assert "form.show(" in "\n".join(source_cells)
-    assert "export_example(" in "\n".join(source_cells)
+    assert len(source_cells) == 6
+    assert f"build_example({number})" in source_cells[0]
+    assert "verify_example(example)" in source_cells[0]
+    assert "from constructive_chemical_space import Word, Nuc, Ele, Con" in source_cells[1]
+    assert "word_A = Word([" in source_cells[1]
+    assert "to_word(" not in source_cells[1]  # no runtime auto-generated words
+    assert "Nuc(" in source_cells[1] or number == 46  # electron-only boundary
+    assert "Con(" in source_cells[1] or entry["expected"]["connections"] == 0
+    for letter in entry["forms"]:
+        assert f"word_{letter} = Word([" in source_cells[1]
+        assert f"state_{letter} = word_{letter}.replay_state()" in source_cells[2]
+        assert f"allocation_{letter} = state_{letter}.form" in source_cells[2]
+        assert f"constitution_{letter} = allocation_{letter}.to_constitution()" in source_cells[2]
+        assert f"allocation_{letter}.show(" in source_cells[4]
+    assert "constitution_A.show(" in source_cells[3]
+    assert "EXPORT = False" in source_cells[5]
+    assert "constitution_A.save(" in source_cells[5]
     # During the transition to executed notebooks, both clean source files
     # and fully kernel-executed files are valid; never fabricate output.
     provenance = obj["metadata"].get("ccs_execution")
@@ -153,9 +165,17 @@ def test_example_notebook_execution_setup_without_rendering():
         code = ["".join(c["source"]) for c in notebook["cells"]
                 if c["cell_type"] == "code"]
         namespace = {}
-        exec(compile(code[0], entry["notebook"], "exec"), namespace)
+        for source in code[:3]:
+            exec(compile(source, entry["notebook"], "exec"), namespace)
         assert namespace["example"].number == number
         assert namespace["replay_lengths"] == verify_example(namespace["example"])
+        for letter in entry["forms"]:
+            state = namespace[f"state_{letter}"]
+            allocation = namespace[f"allocation_{letter}"]
+            constitution = namespace[f"constitution_{letter}"]
+            assert state.form is allocation
+            assert allocation.to_constitution() == constitution or len(state.address_table) > 15
+            assert constitution.num_electrons == entry["expected"]["electrons"]
 
 
 def test_render_and_export_small_examples(tmp_path):
@@ -218,3 +238,28 @@ def test_notebook_execution_report_when_available():
         assert notebook["metadata"]["ccs_execution"]["svg_outputs_sha256"] == entry["real_svg_sha256"]
         assert notebook["metadata"]["ccs_execution"]["actual_svg_outputs"] == entry["real_svg_outputs"]
         assert notebook["metadata"]["ccs_execution"]["actual_code_cell_execution_counts"] == entry["kernel_execution_counts"]
+
+
+@pytest.mark.parametrize("number", range(1, 56))
+def test_all_literal_notebook_words_replay_into_full_ccs_objects(number):
+    """Execute literal Word definitions, not an indirect to_word() witness."""
+    entry = ENTRIES[number - 1]
+    path = S5_ROOT / "notebooks" / entry["notebook"]
+    nb = json.loads(path.read_text(encoding="utf-8"))
+    code = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
+    scope = {}
+    for block in code[:3]:  # data, explicit words, explicit replay/assertions
+        exec(compile(block, str(path), "exec"), scope)
+    example = scope["example"]
+    assert len(example.forms) == len(entry["forms"])
+    for label in entry["forms"]:
+        word = scope[f"word_{label}"]
+        state = scope[f"state_{label}"]
+        form = scope[f"allocation_{label}"]
+        constitution = scope[f"constitution_{label}"]
+        assert state.form is form
+        assert form.to_word(order=state.address_table).tokens == word.tokens
+        assert constitution.num_electrons == example.constitution.num_electrons
+        assert constitution.total_charge == example.constitution.total_charge
+        assert len(constitution.nuclei) == len(example.constitution.nuclei)
+        assert len(constitution.connections) == len(example.constitution.connections)
