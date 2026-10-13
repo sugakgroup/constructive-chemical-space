@@ -52,6 +52,9 @@ jobs:
             tests/test_visualization.py::test_2d_planar_K4_has_zero_straight_line_crossings \
             tests/test_visualization.py::test_nonplanar_K5_is_detected_and_accurately_warned \
             tests/test_visualization.py::test_cluster_schematics_spread_dense_metal_incidence \
+            tests/test_visualization.py::test_metals_are_placed_last_outside_ligand_atoms \
+            tests/test_visualization.py::test_cryptand_explicit_h_positions_are_distinct \
+            tests/test_visualization.py::test_residual_dots_remain_close_to_ligand_nuclei \
             tests/test_visualization.py::test_residual_dots_are_svg_vector_circles_not_utf8_text \
             tests/test_s5_examples.py::test_record13_bisperiazulene_author_corrected_formB_C \
             'tests/test_s5_examples.py::test_all_literal_notebook_words_replay_into_full_ccs_objects[13]' \
