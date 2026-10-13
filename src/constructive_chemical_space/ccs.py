@@ -2333,20 +2333,30 @@ def _ccs_layout_2d(mol, layout: str) -> None:
     )
     for method in methods:
         try:
-            # Derive coordinates from the connection graph alone. A copy
-            # prevents DATIVE/ZERO and other electron-allocation bond glyphs
-            # from changing the 2D geometry of the same CCS constitution.
-            working = Chem.Mol(mol)
-            working.RemoveAllConformers()
-            for edge in working.GetBonds():
-                i, j = edge.GetBeginAtomIdx(), edge.GetEndAtomIdx()
+            # Rebuild a deterministic, depiction-only graph from nuclear
+            # identities and sorted undirected incidences. Reorienting a
+            # DATIVE bond changes the toolkit's input edge direction even
+            # after converting it to SINGLE; rebuild to avoid this too.
+            rw = Chem.RWMol()
+            for atom in mol.GetAtoms():
+                plain = Chem.Atom(atom.GetSymbol())
+                plain.SetNoImplicit(True)
+                if atom.GetIsotope():
+                    plain.SetIsotope(atom.GetIsotope())
+                rw.AddAtom(plain)
+            for i, j in sorted(
+                (min(b.GetBeginAtomIdx(), b.GetEndAtomIdx()),
+                 max(b.GetBeginAtomIdx(), b.GetEndAtomIdx()))
+                for b in mol.GetBonds()
+            ):
                 weakened = (
                     method == "coordgen-light-hubs"
                     and max(graph.degree(i), graph.degree(j)) >= 8
                 )
-                edge.SetBondType(
-                    Chem.BondType.ZERO if weakened else Chem.BondType.SINGLE
+                rw.AddBond(
+                    i, j, Chem.BondType.ZERO if weakened else Chem.BondType.SINGLE
                 )
+            working = rw.GetMol()
             working.UpdatePropertyCache(strict=False)
             if method in {"coordgen", "coordgen-light-hubs"}:
                 from rdkit.Chem import rdCoordGen
