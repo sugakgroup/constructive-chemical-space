@@ -161,67 +161,47 @@ and residual valence dots, plus warnings where 2D planarity is impossible.
 The execution report's captured SVG/source hashes are independently checked
 by `tests/test_s5_examples.py`.
 
-### Cluster schematics and portable electron-dot graphics
+### Generic graph-based 2D and automatic drawing-space expansion
 
-The optional 2D depiction uses a schematic separated-ligand arrangement for
-multi-decker complexes, a metal-in-shell radial layout for Ni@Pb12 and three
-visually separated N-to-N bridges for 2.2.2 cryptand hosts. These sketches
-retain **all** CCS nuclear incidences but are not computed 3D geometries.
-For genuinely nonplanar graphs, some line crossings remain mathematically
-unavoidable; the figure retains the explicit warning. Use
-`layout="cluster"` to force the specialized view (or `"auto"` to detect
-the motif); `layout="coordgen"` / `"rdkit"` remain available to compare
-against the generic layout.
+There are now **no molecule-, metal-, cluster-, ligand-, or named-SI-record
+layout branches**. For every graph the same code compares candidate RDKit,
+CoordGen and, when crowded, seeded spring-based arrangements. It selects
+using straight-edge intersections, interatomic separation and extreme
+connection-length penalties. Planar graphs always use an embedding with
+**zero straight-line crossings**, while nonplanar graphs show a visible
+warning. No physically computed 3D geometry is implied.
 
-Residual valence electron dots are rendered using actual SVG vector
-`<circle>` primitives and equivalent PNG ellipses, not the font-dependent
-UTF-8 `•` character. Per-nucleus residual counts and origin are retained as
-numeric SVG data attributes. This avoids the `\xe2\x80\xa2` text-display
-issue while preserving the exact CCS electron bookkeeping.
+The renderer alone cannot create additional visible spacing simply by
+multiplying coordinate positions: RDKit automatically fits them to the
+drawing viewport. Instead every S5 notebook calculates the **maximum
+connection degree** and enlarges both SVG width and height when crowded,
+leaving enough pixels between symbols, connection lines and nuclear
+electron annotations. For ferrocene the factor is approximately 1.77
+because its metal center has ten incident connections; no special
+ferrocene code or shape rules are used.
 
-### CI usage
+The residual-electron dots are genuine SVG `<circle>` primitives and
+PNG ellipses rather than UTF-8 bullet characters, preventing escaped-byte
+glyph problems. Their electron counts remain in machine-readable SVG
+metadata. `layout="auto"` is recommended; `"rdkit"` and `"coordgen"`
+remain available to compare generic candidate behavior.
 
-Ordinary PR #4 branch pushes now run a **single representative smoke**
-(Python 3.11, eight S5 records including Lu2(Pc)3, Ni@Pb12, and both cryptand
-examples). Their kernel outputs are intentionally ephemeral and are never
-committed or called the complete validation. The **full 55-notebook execution
-and saved-output refresh** and the full version matrix run only by manually
-dispatching the corresponding GitHub Actions workflows at final review.
+### Cost-conscious testing and real output provenance
 
-### Viewing cluster changes before the final full-corpus run
+During PR review, ordinary pushes run **only one representative Python
+3.11 workflow** and execute eight SI notebooks with genuine Jupyter
+kernels. These example outputs and the real SVG previews are available
+as a short-lived GitHub Actions ZIP artifact (5-day retention), not
+committed as substitute full-corpus results.
 
-Representative smoke is also available as a short-lived GitHub Actions
-artifact (`s5-smoke-clusters-<run id>`) containing actual-kernel SVG
-constitution and allocation diagrams for eight selected S5 records,
-including the 4 difficult coordination and cluster examples. The artifact
-is not merged into the notebooks, expires after five days, and is **not**
-claimed to replace the final 55-notebook execution and provenance report.
-The all-record notebook regeneration remains a manual final-review action.
+The generic rendering and congestion-scale revision was checked by
+[representative run 38373858558](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38373858558):
+**47 selected tests passed**, and eight actual notebooks generated
+**22 authentic SVGs**. The [corresponding preview artifact](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38373858558/artifacts/11799704062)
+includes ferrocene, bis-periazulene, Lu2(Pc)3, Ni@Pb12 and cryptand examples.
 
-### Ligand-first / metal-last placement
-
-For metallocenes and multi-decker complexes the organic ring structures are
-laid out first. Metal atoms are then placed last using deterministic candidate
-positions outside the crowded ligand nuclei, scored for atom clearance,
-direct-connection interference and unnecessary distance. The metals remain
-fully connected: no Fe–C, Tb–N or Lu–N incidence is removed. This is a
-readability-driven schematic 2D convention, not a proposed 3D geometry.
-
-For cryptands, the three bridging chains and **all explicit H positions**
-are placed first. Two hydrogens on a parent atom are fanned out and checked
-against nearby atoms; K/Na is added last, away from the ligand. Central Ni
-inside Pb12 is deliberately retained as the exception where the metal is
-intrinsically the included graph hub. Residual electron dots are kept nearer
-their source atom than charge annotations.
-
-### Planarity versus a distant metal: a deliberate limitation
-
-For planar metal-containing graphs such as Fe(Cp)2, U(COT)2 and Tb(Pc)2,
-putting the metal entirely outside otherwise regular ligand polygons
-creates artificial straight-line crossings. In these cases, the renderer
-honors the prior **zero-crossing** requirement by falling back to an
-unintersected planar embedding and locally increasing metal clearance while
-keeping the ligand vertices fixed. For genuinely nonplanar layered
-complexes, the ligand-first / metal-last arrangement is retained and the
-unavoidable 2D crossings are identified explicitly. The full CCS
-connection set is always preserved.
+The checked-in **55 fully executed notebooks / 168 SVGs** are still
+authentic outputs from the earlier [full run 38362379662](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38362379662);
+they have **not** been falsely relabeled as images from the current
+generic renderer. A final manually dispatched complete kernel run and
+full-version CI matrix will refresh those outputs after design approval.

@@ -129,9 +129,12 @@ and does not acquire any display indices; caller-provided `order` is used
 only for reproducible depiction. Word-based displays use replay order by
 default. SVG generation requires RDKit and NetworkX for planarity testing; PNG also
 requires Pillow, and `show()` additionally requires IPython. The 2D layout
-prefers CoordGen for suitably connected rings, detects geometrical crossings
-and uses an explicit straight-line planar embedding if required. Planar CCS
-graphs must have no unrelated bond-line crossings. Mathematically nonplanar
+uses no metal, cluster, ligand or named-example-specific branches: RDKit and
+CoordGen candidate drawings are compared with a seeded spring-repulsion
+candidate for high-degree/nonplanar graphs using the same intersection,
+interatomic-spacing and bond-length criteria. A crossing-free straight-line
+planar embedding is mandatory where the direct-connection graph is planar.
+Planar CCS graphs must have no unrelated bond-line crossings. Mathematically nonplanar
 graphs cannot satisfy that condition and receive a visible disclaimer rather
 than pretending the crossings can be removed. No physical 3D model is inferred.
 
@@ -179,7 +182,7 @@ For `ElectronAllocation`, the public unassigned-electron field/keyword is `num_u
 
 ## Scope of S5 example verification
 
-PR #1 includes targeted examples and tests of the **S5 deterministic construction word convention** (including the zero-allocation H2 form). Machine-readable transcription and independent exact validation of the complete **55 S5 records / 84 electron-allocation forms** will be handled separately after API freeze. The latter full-corpus test is not a current claim of v1.0 conformance.
+The original PR #1 covers the **S5 deterministic construction-word convention**. PR #4 adds the complete machine-readable corpus of **55 S5 records and 84 electron-allocation forms**, individual explicit-word Jupyter notebooks, replay verification, and source-provenance checks. These are executable witnesses for the specified examples, not an assertion about physical geometry or exhaustive formal chemical space.
 
 ## Explicitly excluded from the v1.0 contract
 

@@ -270,11 +270,16 @@ They must not be treated as complete CCS constitutions or as faithful molecular
 identity diagrams.
 
 For crossing-aware 2D depiction, the optional `networkx` dependency checks
-whether the direct-connection graph is planar. `layout="auto"` selects
-CoordGen on suitable graphs and, when needed, falls back to a mathematically
-crossing-free straight-line planar embedding. For genuinely **nonplanar** graphs
-no zero-crossing 2D drawing exists: the figure explicitly warns that
-crossings are unavoidable. No speculative 3D geometry is generated.
+whether the direct-connection graph is planar. `layout="auto"` applies the
+**same graph-independent criteria to all elements and complexes**: compare
+RDKit and CoordGen layouts, add a seeded spring-repulsion candidate when
+connectivity is dense, and prefer larger interatomic separation with fewer
+connection crossings. Planar graphs get crossing-free straight lines;
+nonplanar graphs explicitly warn that some crossings are unavoidable.
+No speculative 3D geometry is generated. In the S5 notebooks, the drawing
+canvas is automatically enlarged according to maximum connection degree so
+the visible bond distances also increase (coordinate-only scaling would
+be undone by RDKit's auto-fit).
 
 For reproducible indexed diagrams use `order=(...)` with the exact nucleus
 objects of the source form, or show a `Word` / `PracticalWord` (which preserves
@@ -301,7 +306,10 @@ verifies both against the independently specified SI forms, and visualizes
 **the replay-produced objects** using `.show()` (all H explicit by default).
 
 All 55 notebooks include **actual Jupyter kernel execution outputs**:
-168 SVGs in total (**84 form-specific constitutions plus 84 allocations**).
+168 SVGs in total (**84 form-specific constitutions plus 84 allocations**)
+from the earlier complete kernel run. The newest density-aware drawings are
+available as genuine representative preview artifacts and will be installed
+into the complete notebooks only at the manually triggered final run.
 All 84 form-specific constitutions are proved identical under the displayed
 nucleus-index bijection before rendering, including large symmetric examples.
 `examples/s5/execution_report.json` records genuine kernel execution counts,

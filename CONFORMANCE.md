@@ -17,7 +17,7 @@ Date: 2026-10-13. Basis: *Defining Chemical Space Constructively*, Supporting In
 | S4.5 finite macros, argument admissibility, repeated Gly | `Macro`, `MacroCon`, `Arg` | `test_s4_practical.py` |
 | S5 deterministic `W(D)` relative to an explicit display enumeration | `ElectronAllocation.to_word(order=...)` | `test_s3_coverage.py` |
 | Non-normative RDKit projection; `n_empty` is not silently localized | `to_rdkit_mol`, `to_smiles` | `test_rdkit_projection.py` |
-| Optional S1/S5 visualization; full explicit-H graph, group-13–17 residual valence dots, atom-local q signs, and ligand-first metal-last schematic 2D layout | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
+| Optional S1/S5 visualization; full explicit-H graph, group-13–17 residual valence dots, atom-local q signs, and one generic density-aware 2D layout with zero crossings for planar graphs | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
 | S5 all 55 executed notebooks, 84 explicit W(D) words, full Form-specific D and M consistency, and 168 authentic SVG outputs | `examples/s5/data/manifest.json`, `examples/s5/data/s5_records.json.xz`, `ElectronAllocation.to_word(order=...)`, `Word.replay()` | `tests/test_s5_examples.py` |
 
 ## Reproducibility boundary
@@ -36,4 +36,4 @@ python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-CI: `.github/workflows/tests.yml` tests the S1-S4 core on Python 3.10, 3.11 and 3.12, and the complete suite with RDKit on Python 3.11. Compare the green workflow result to the pull-request HEAD commit; earlier successful runs must not be presented as proof of a newer HEAD.
+During PR #4 development, `.github/workflows/tests.yml` runs one Python 3.11 representative smoke suite on push, including eight real-kernel notebooks. The complete Python 3.10/3.11/3.12 matrix and regeneration of all 55 authentic executed notebooks are separate **manual final-review** workflows. Earlier successful runs must never be presented as proof of the latest HEAD or the unrefreshed notebook outputs.

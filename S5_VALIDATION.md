@@ -129,3 +129,22 @@ electride), for which at least one crossing is mathematically unavoidable.
 No 3D structure is asserted. The 13–17 group residual valence electron dots
 and assignment-imbalance signs are derived annotations, not intrinsic CCS
 identity or claims of measured electronic structure.
+
+## Latest simplification: degree-based graphic spacing
+
+PR #4 subsequently removed all chemistry-specific arrangements for
+ferrocene, sandwich complexes, metal-containing clusters and cryptands.
+Only generic direct-connection graph properties drive layout selection:
+planarity, number of line intersections, nuclear proximity, and
+connection-distance outliers. Crowded notebooks enlarge the actual
+drawing canvas using the graph's maximum degree, because merely scaling
+raw 2D coordinates would be canceled by RDKit's auto-fit.
+
+The latest generic representative Jupyter run is
+[38373858558](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38373858558):
+47 selected tests passed and eight real kernels produced 22 preview SVGs,
+including S5 ferrocene, Lu2Pc3 and cryptands. These uncommitted preview
+outputs are separate from the earlier genuine full-corpus
+[38362379662](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38362379662).
+The final 55-notebook execution must be rerun only after approval. No
+kernel output has been manufactured.
