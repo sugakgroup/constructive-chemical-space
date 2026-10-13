@@ -2525,6 +2525,87 @@ def _ccs_apply_cluster_geometry(mol, graph):
     return True
 
 
+def _ccs_relax_planar_metal_clearance(mol, graph):
+    """Improve metal-to-atom clearance within a crossing-free embedding.
+
+    Some metal wheels joined at their metal vertex (e.g. Cp sandwich
+    complexes) are abstractly planar, but a regular ligand-ring drawing with
+    metal fully outside would introduce straight-line crossings. In the
+    guaranteed planar layout, move each metal last among crossing-free
+    candidate positions, without changing fixed ligand coordinates.
+    """
+    from statistics import median
+    conf = mol.GetConformer()
+    symbols = {
+        atom.GetIdx(): atom.GetSymbol() for atom in mol.GetAtoms()
+    }
+    p_block = {"H", "B", "C", "N", "O", "F", "P", "S",
+               "Se", "Cl", "Br", "I", "At", "Pb"}
+    hubs = [
+        i for i in sorted(graph)
+        if graph.degree(i) >= 6 and symbols[i] not in p_block
+    ]
+    if not hubs or graph.number_of_edges() == 0:
+        return
+    lengths = [
+        hypot(
+            conf.GetAtomPosition(a).x - conf.GetAtomPosition(b).x,
+            conf.GetAtomPosition(a).y - conf.GetAtomPosition(b).y
+        )
+        for a, b in graph.edges()
+    ]
+    bond_scale = max(1e-6, median(lengths))
+    adjusted = False
+    for hub in hubs:
+        original = conf.GetAtomPosition(hub)
+        bx, by = original.x, original.y
+        neighbors = tuple(graph.neighbors(hub))
+        other = [
+            i for i in range(mol.GetNumAtoms()) if i != hub
+        ]
+
+        def clearance(x, y):
+            return min(
+                hypot(
+                    x - conf.GetAtomPosition(i).x,
+                    y - conf.GetAtomPosition(i).y
+                )
+                for i in other
+            )
+
+        original_clearance = clearance(bx, by)
+        # High-clearance metal positions require no perturbation. Additional
+        # search on very large, already-clear frameworks adds no readability.
+        if original_clearance >= 0.65 * bond_scale:
+            continue
+        best = (original_clearance, -0.0, bx, by)
+        for step in (0.25, 0.50, 0.80, 1.15, 1.65, 2.30, 3.20):
+            radius = step * bond_scale
+            for k in range(36):
+                angle = 2.0 * pi * k / 36.0
+                x = bx + radius * cos(angle)
+                y = by + radius * sin(angle)
+                conf.SetAtomPosition(hub, (x, y, 0.0))
+                if _ccs_segment_intersections(mol):
+                    continue
+                nearest = clearance(x, y)
+                avg_len = sum(
+                    hypot(
+                        x - conf.GetAtomPosition(i).x,
+                        y - conf.GetAtomPosition(i).y,
+                    ) for i in neighbors
+                ) / max(1, len(neighbors))
+                # Improvement in nucleus clearance dominates shorter
+                # metal-incidence lines. Do not place the metal arbitrarily
+                # far away from all ligand atoms.
+                score = nearest - 0.012 * avg_len - 0.035 * radius
+                if (score, -radius, x, y) > best:
+                    best = (score, -radius, x, y)
+        conf.SetAtomPosition(hub, (best[2], best[3], 0.0))
+        adjusted |= hypot(best[2] - bx, best[3] - by) > 1e-10
+    mol.SetBoolProp("_CCSPlanarMetalAdjusted", adjusted)
+
+
 def _ccs_layout_2d(mol, layout: str) -> None:
     """Prefer legible CoordGen geometry; enforce no crossings when planar.
 
@@ -2586,7 +2667,11 @@ def _ccs_layout_2d(mol, layout: str) -> None:
                     conf.SetAtomPosition(i, (float(p[0]), float(p[1]), 0.0))
             crossing_count = _ccs_segment_intersections(mol)
             if mol.HasProp("_CCSClusterLayoutKind"):
-                mol.SetProp("_CCSClusterLayoutKind", "planar-fallback")
+                _ccs_relax_planar_metal_clearance(mol, graph)
+                mol.SetProp(
+                    "_CCSClusterLayoutKind", "planar-metal-clearance"
+                )
+                crossing_count = _ccs_segment_intersections(mol)
         except Exception as exc:
             raise CCSVisualizationError(
                 "A planar graph could not be laid out without crossing"
@@ -2757,7 +2842,7 @@ def _ccs_render_options(
     if mol.GetBoolProp("_CCSNonPlanar2D"):
         footer.append("Non-planar graph: crossings unavoidable in 2D")
     if mol.HasProp("_CCSClusterLayoutKind") and (
-        mol.GetProp("_CCSClusterLayoutKind") != "planar-fallback"
+        not mol.GetProp("_CCSClusterLayoutKind").startswith("planar-")
     ):
         footer.append("Schematic cluster arrangement (not a 3D geometry)")
     footer_height = max(40, 8 + len(footer) * (footer_font_size + 3))

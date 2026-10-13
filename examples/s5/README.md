@@ -213,3 +213,15 @@ against nearby atoms; K/Na is added last, away from the ligand. Central Ni
 inside Pb12 is deliberately retained as the exception where the metal is
 intrinsically the included graph hub. Residual electron dots are kept nearer
 their source atom than charge annotations.
+
+### Planarity versus a distant metal: a deliberate limitation
+
+For planar metal-containing graphs such as Fe(Cp)2, U(COT)2 and Tb(Pc)2,
+putting the metal entirely outside otherwise regular ligand polygons
+creates artificial straight-line crossings. In these cases, the renderer
+honors the prior **zero-crossing** requirement by falling back to an
+unintersected planar embedding and locally increasing metal clearance while
+keeping the ligand vertices fixed. For genuinely nonplanar layered
+complexes, the ligand-first / metal-last arrangement is retained and the
+unavoidable 2D crossings are identified explicitly. The full CCS
+connection set is always preserved.
