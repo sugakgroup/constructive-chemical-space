@@ -72,7 +72,7 @@ constitutions and 84 allocation diagrams). Each notebook has six actually
 executed code cells. The environment was Python 3.11.17, RDKit 2026.09.1
 and nbclient 0.11.0. Source and saved-output SHA-256 fingerprints appear in
 `execution_report.json`. The original real-kernel execution log is
-[GitHub Actions run 38357651689](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38357651689).
+[GitHub Actions run 38362379662](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38362379662).
 
 **No output or execution_count field is simulated.** To regenerate, execute
 the following two commands together after installing the dependencies:
@@ -149,3 +149,14 @@ The separately validated B/C electron-allocation data use
 transcription, which had these two values reversed in Forms B/C. Other
 connections are inherited from Form A unless specified; Form C retains
 `n(C(0))=7`, `n(C(7))=5`. See `S5_VALIDATION.md` for provenance.
+
+### Latest real-kernel reproducibility check
+
+At the latest audited execution (`38362379662`), all 55 notebooks ran in
+actual Jupyter kernels and produced 168 SVGs: one Constitution and one
+ElectronAllocation per Form. Every picture uses `show_indices=False`,
+with explicit hydrogen nuclei, no generated 3D geometry, and the
+crossing-aware 2D layout. The output includes nucleus-local CCS q signs
+and residual valence dots, plus warnings where 2D planarity is impossible.
+The execution report's captured SVG/source hashes are independently checked
+by `tests/test_s5_examples.py`.
