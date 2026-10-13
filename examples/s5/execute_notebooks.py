@@ -12,6 +12,7 @@ Dependencies: pip install -e ".[dev]" && pip install nbclient nbformat ipykernel
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -67,13 +68,34 @@ def svg_from_kernel_output(output) -> str | None:
     return "".join(svg) if isinstance(svg, list) else str(svg)
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--records", nargs="+", type=int, default=None,
+        help="Representative record numbers; executes real kernels but does "
+             "not overwrite the authoritative 55-notebook execution report.",
+    )
+    parser.add_argument("--report-path", type=Path, default=None)
+    args = parser.parse_args(argv)
+
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     if manifest["schema"] != "ccs-s5-notebooks-1.0":
         raise RuntimeError("Unexpected S5 manifest schema")
-    entries = manifest["records"]
-    if len(entries) != 55 or sum(len(x["forms"]) for x in entries) != 84:
+    all_entries = manifest["records"]
+    if len(all_entries) != 55 or sum(len(x["forms"]) for x in all_entries) != 84:
         raise RuntimeError("S5 manifest must contain exactly 55 records / 84 forms")
+    full_corpus = args.records is None
+    if full_corpus:
+        entries = all_entries
+    else:
+        chosen = args.records
+        if (not chosen or len(chosen) != len(set(chosen))
+                or any(not 1 <= num <= 55 for num in chosen)):
+            raise ValueError("Representative --records must be distinct numbers 1..55")
+        selected = set(chosen)
+        entries = [row for row in all_entries if row["number"] in selected]
+        if len(entries) != len(chosen):
+            raise RuntimeError("Requested example record not found in manifest")
 
     records_file = S5 / "data" / manifest["data_file"]
     if sha256(records_file.read_bytes()) != manifest["data_sha256"]:
@@ -203,8 +225,9 @@ def main() -> int:
         )
 
     report = {
-        "schema": "ccs-s5-real-kernel-execution-1.0",
-        "status": "completed",
+        "schema": ("ccs-s5-real-kernel-execution-1.0" if full_corpus
+                   else "ccs-s5-representative-kernel-smoke-1.0"),
+        "status": "completed" if full_corpus else "representative_completed",
         "generation_method": "nbclient NotebookClient.execute() with ipykernel",
         "notebook_count": len(results),
         "form_count": sum(x["form_count"] for x in results),
@@ -219,12 +242,19 @@ def main() -> int:
         "source_fixture_sha256": manifest["data_sha256"],
         "notebooks": results,
     }
-    REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",
-                      encoding="utf-8")
+    destination = (REPORT if full_corpus else
+                   (args.report_path or S5 / "smoke_execution_report.json"))
+    if not full_corpus and destination.resolve() == REPORT.resolve():
+        raise ValueError("Representative smoke must not overwrite the full report")
+    destination.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     print(
-        f"COMPLETE: executed {report['notebook_count']} real Jupyter kernels "
+        f"{'FULL CORPUS' if full_corpus else 'REPRESENTATIVE ONLY'}: "
+        f"executed {report['notebook_count']} real Jupyter kernels "
         f"with {report['actual_svg_count']} captured real SVG outputs. "
-        f"Execution report: {REPORT}",
+        f"Execution report: {destination}",
         flush=True,
     )
     return 0
