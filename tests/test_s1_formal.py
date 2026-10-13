@@ -149,3 +149,32 @@ def test_form_immutable_with_defensively_copied_assignments():
     with pytest.raises(FrozenInstanceError):
         d._assigned = {}
     assert d.to_word(order=(h1, h2)).replay() == d
+
+def test_intrinsic_equality_exhaustive_four_nucleus_relabelings():
+    from itertools import permutations
+
+    identities = ["C", "N", "H", "H"]
+    assignments = [6, 7, 1, 1]
+    edges = [(0, 1, 2, 0), (1, 2, 1, 1), (0, 3, 1, 1)]
+    original = ElectronAllocation.from_indexed(
+        identities, assignments, edges, num_unassigned_electrons=1
+    )
+    for permutation in permutations(range(4)):
+        inverse = {old: new for new, old in enumerate(permutation)}
+        relabeled = ElectronAllocation.from_indexed(
+            [identities[old] for old in permutation],
+            [assignments[old] for old in permutation],
+            [(inverse[i], inverse[j], ai, aj) for i, j, ai, aj in edges],
+            num_unassigned_electrons=1,
+        )
+        assert relabeled == original
+        assert relabeled.to_constitution() == original.to_constitution()
+
+
+def test_total_charge_includes_unassigned_electron_contribution():
+    d = ElectronAllocation.from_indexed(
+        ["O", "H"], [8, 1], [(0, 1, 1, 1)],
+        num_unassigned_electrons=2,
+    )
+    assert sum(d.assignment_imbalance(v) for v in d.nuclei) == 0
+    assert d.to_constitution().total_charge == -2
