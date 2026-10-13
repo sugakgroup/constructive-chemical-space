@@ -1,13 +1,116 @@
-name: tests
+name: CCS tests (development smoke / complete main CI)
 
 on:
   push:
+    branches: [main, feature/s5-records-validation]
+    paths:
+      - .github/workflows/tests.yml
+      - src/constructive_chemical_space/**
+      - tests/**
+      - examples/s5/_common.py
+      - examples/s5/execute_notebooks.py
+      - examples/s5/generate_explicit_words.py
+      - examples/s5/data/**
+      - examples/s5/notebooks/**
+      - examples/s5/execution_report.json
   pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tests.yml
+      - src/constructive_chemical_space/**
+      - tests/**
+      - examples/s5/_common.py
+      - examples/s5/execute_notebooks.py
+      - examples/s5/generate_explicit_words.py
+      - examples/s5/data/**
+      - examples/s5/notebooks/**
+      - examples/s5/execution_report.json
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Use representative for cheap local review; full for 3.10–3.12 core matrix and complete test suite."
+        type: choice
+        required: true
+        default: representative
+        options: [representative, full]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ccs-checks-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
 
 jobs:
-  core:
+  representative-smoke:
+    # Feature branch stays cheap. A deliberate [full-validation] release
+    # commit triggers the full matrix instead; main always gets full checks.
+    if: >-
+      (github.event_name == 'push' &&
+       github.ref == 'refs/heads/feature/s5-records-validation' &&
+       !contains(github.event.head_commit.message, '[full-validation]')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.scope == 'representative')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install optional visualization and kernel dependencies
+        run: |
+          python -m pip install -e ".[dev]"
+          python -m pip install "nbclient>=0.10" "nbformat>=5.10" "ipykernel>=6"
+      - name: Fast representative CCS core, notation, planarity, and S5 tests
+        run: |
+          python -m pytest -q \
+            tests/test_s1_formal.py \
+            tests/test_s2_replay.py \
+            tests/test_visualization.py::test_amine_nitrogen_displays_two_residual_valence_dots \
+            tests/test_visualization.py::test_water_oxygen_displays_four_valence_residual_dots \
+            tests/test_visualization.py::test_assignment_imbalance_signs_and_valence_dots \
+            tests/test_visualization.py::test_negative_charge_svg_uses_vector_minus_not_utf8_escape \
+            tests/test_visualization.py::test_2d_planar_K4_preserves_chemical_ring_layout \
+            tests/test_visualization.py::test_s5_ferrocene_cp_rings_are_pentagonal \
+            tests/test_visualization.py::test_s5_perfluorocubane_square_faces_do_not_collapse \
+            tests/test_visualization.py::test_s5_auto_selects_generic_ring_hub_or_cage_projection \
+            tests/test_visualization.py::test_nonplanar_K5_is_detected_and_accurately_warned \
+            tests/test_visualization.py::test_dense_s5_layout_is_independent_of_element_category \
+            tests/test_visualization.py::test_old_cluster_specific_layout_flag_is_not_supported \
+            tests/test_visualization.py::test_generic_spacing_keeps_explicit_h_nuclei_distinct \
+            tests/test_visualization.py::test_residual_dots_remain_close_to_ligand_nuclei \
+            tests/test_visualization.py::test_residual_dots_are_svg_vector_circles_not_utf8_text \
+            tests/test_s5_examples.py::test_record13_bisperiazulene_author_corrected_formB_C \
+            'tests/test_s5_examples.py::test_all_literal_notebook_words_replay_into_full_ccs_objects[13]' \
+            'tests/test_s5_examples.py::test_all_literal_notebook_words_replay_into_full_ccs_objects[36]' \
+            'tests/test_s5_examples.py::test_all_literal_notebook_words_replay_into_full_ccs_objects[46]'
+      - name: Real ipykernel smoke — nine representative SI examples
+        run: |
+          python examples/s5/generate_explicit_words.py
+          python examples/s5/execute_notebooks.py \
+            --records 2 13 18 21 42 43 44 46 47 \
+            --preview-dir examples/s5/smoke_preview
+      - name: Save ephemeral genuine-kernel S5 previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: s5-smoke-clusters-${{ github.run_id }}
+          retention-days: 5
+          if-no-files-found: error
+          path: |
+            examples/s5/smoke_preview/*.svg
+            examples/s5/smoke_execution_report.json
+
+  core-matrix:
+    if: >-
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/main' ||
+        contains(github.event.head_commit.message, '[full-validation]'))) ||
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      (github.event_name == 'workflow_dispatch' && inputs.scope == 'full')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
@@ -15,19 +118,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install package and test dependencies
+      - name: Install core test dependencies
         run: python -m pip install -e ".[test]"
-      - name: Run core tests
-        run: python -m pytest tests/test_s1_formal.py tests/test_s2_replay.py tests/test_s3_coverage.py tests/test_s4_practical.py
+      - name: Full S1–S4 core tests
+        run: |
+          python -m pytest -q \
+            tests/test_s1_formal.py \
+            tests/test_s2_replay.py \
+            tests/test_s3_coverage.py \
+            tests/test_s4_practical.py
 
-  rdkit_visualization:
+  full-visualization:
+    if: >-
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/main' ||
+        contains(github.event.head_commit.message, '[full-validation]'))) ||
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      (github.event_name == 'workflow_dispatch' && inputs.scope == 'full')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install package with RDKit and visualization extras
+      - name: Install all test and visualization dependencies
         run: python -m pip install -e ".[dev]"
-      - name: Run full test suite including visualization
-        run: python -m pytest
+      - name: Full regression suite, including all saved S5 notebook outputs
+        run: python -m pytest -q

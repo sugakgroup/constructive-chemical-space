@@ -235,12 +235,33 @@ the figure footer; optionally use `show_total_charge=True`.
 
 Allocation view uses single/double/triple strokes for `(1,1)`, `(2,2)`,
 `(3,3)`, and illustrative arrows for `(2,0)` / `(0,2)`.
-All other endpoint allocations, including `(0,0)` and odd values, are
-written **with the temporary index of each endpoint**, such as `0:3, 2:1`.
-The SI S1.4 auxiliary assignment imbalance `q_v=Z(X(v))-n_v` is shown as
-`q=+1` / `q=-1` atom notes where nonzero, **not** as an RDKit/Lewis formal
-charge. `diagnostics=True` additionally displays `n`, residual electron
-count `r`, and `q`.
+All other endpoint allocations, including `(0,0)`, one-electron
+`(1,0)` and asymmetric `(3,2)`, are displayed **as two separate numbers
+positioned close to their own nuclei** (default
+`allocation_label_mode="endpoint"`). Their positions are calculated from the
+actual drawn bond endpoints rather than assuming that displayed left/right
+equals nuclear index order. For reproducibility, SVG text includes
+`data-bond`, `data-atom` (temporary display index), and `data-electrons`.
+The older central indexed label can be obtained with
+`allocation_label_mode="bond"` (e.g. `0:3, 2:1`), or hidden with
+`allocation_label_mode="none"`. `label_all_allocations=True` also annotates
+otherwise conventional glyphs such as `(1,1)`. The same endpoint-label
+placement is implemented in SVG and PNG.
+For **group-13–17 nuclei** (excluding H), the electron-allocation
+view also displays each residual **valence** electron as a dot: the count is
+`r_v - (Z_v - (group_v - 10))`, where `r_v = n_v - Σ_s a_{v,s}`.
+Thus neutral amine nitrogen gives `••` and water oxygen gives four dots.
+This is an allocation accounting display, **not a calculated radical spin or
+lone-pair orbital assignment**. If the count exceeds eight, the plot uses a
+numeric residual annotation instead of crowding the picture; negative valence
+remainders are not invented as electrons.
+
+The S1.4 auxiliary assignment imbalance `q_v = Z_v - n_v` is shown as
+compact atom-local `+`, `−`, `2−` etc. (SVG-annotated explicitly as a
+**CCS assignment imbalance**, not an independently proven Lewis/RDKit formal
+charge). `diagnostics=True` still shows `n`, total residual `r`, and
+`q` as optional debugging notes. Both valence dots and q symbols are
+annotations only, never RDKit charge/radical properties.
 
 `show_hydrogens=False` is an **explicit opt-in, lossy simplified depiction**:
 it omits H nuclei *and their connections* from the picture, including bridging
@@ -248,14 +269,63 @@ or isotope-resolved hydrogen. Such images are marked `H omitted - lossy view`.
 They must not be treated as complete CCS constitutions or as faithful molecular
 identity diagrams.
 
+The optional `networkx` dependency classifies graph planarity. For
+`layout="auto"`, RDKit and CoordGen provide candidate 2D coordinates;
+high-degree graphs additionally use a generic CoordGen candidate with
+temporarily weakened hub connections. The same graph-based score for all
+nuclear identities prioritizes short-ring and cage geometry, ring-centered
+fully incident hubs, reasonable bond lengths, and nonbonded atom separation.
+Line crossings have only a weak penalty: **a planar graph may legitimately be
+depicted with crossings** to keep familiar chemical shapes. Mathematically
+nonplanar graphs show a warning; a seeded spring layout is used only if
+regular coordinate generation fails.
+No speculative 3D geometry is generated. In the S5 notebooks, the drawing
+canvas is automatically enlarged according to maximum connection degree so
+the visible bond distances also increase (coordinate-only scaling would
+be undone by RDKit's auto-fit).
+
 For reproducible indexed diagrams use `order=(...)` with the exact nucleus
 objects of the source form, or show a `Word` / `PracticalWord` (which preserves
-replay address order). Intrinsic CCS objects do not have canonical nuclear
+replay address order). Temporary `#index` labels are **off by default**; use
+`show_indices=True` only for diagnostics. Intrinsic CCS objects do not have canonical nuclear
 numbering. The visualization never mutates the CCS object or changes replay.
 
 RDKit depiction is downstream and non-normative. In particular, line styles,
 positions, and arrow glyphs are graphical interpretations only, not CCS identity
 fields or physical bonding assignments.
+
+## SI S5 worked examples (55 Jupyter notebooks)
+
+Each of the **55 numbered Section S5 records** has a dedicated runnable notebook in
+[`examples/s5/notebooks/`](examples/s5/notebooks/), covering all **84 electron-allocation
+forms**. Start with [`S5_01_H2.ipynb`](examples/s5/notebooks/S5_01_H2.ipynb),
+[`S5_02_H2O.ipynb`](examples/s5/notebooks/S5_02_H2O.ipynb), or
+[`S5_55_Catenane.ipynb`](examples/s5/notebooks/S5_55_Catenane.ipynb).
+
+The [S5 examples README](examples/s5/README.md) explains how each notebook
+defines complete, **literal** `Word([Nuc, Ele, Con])` construction sequences,
+actually replays them into new ElectronAllocation and Constitution objects,
+verifies both against the independently specified SI forms, and visualizes
+**the replay-produced objects** using `.show()` (all H explicit by default).
+
+All 55 notebooks include **actual Jupyter kernel execution outputs**
+from the final ring-aware layout and vector-minus rendering: **168 SVGs**
+(84 form-specific Constitutions and 84 ElectronAllocations). The latest
+[full Jupyter run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509)
+completed successfully with **494 tests passing both before and after
+committing** the authentic Notebook outputs. [Browse all 55 notebooks](examples/s5/NOTEBOOK_INDEX.md).
+All 84 form-specific constitutions are proved identical under the displayed
+nucleus-index bijection before rendering, including large symmetric examples.
+`examples/s5/execution_report.json` records genuine kernel execution counts,
+source/SVG SHA-256 hashes, and GitHub Actions run ID. No fabricated execution
+results are stored.
+
+One normalized source-data file, `examples/s5/data/s5_records.json.xz`,
+is shared by all notebooks and `tests/test_s5_examples.py`. The separate
+`examples/s5/data/manifest.json` indexes notebook filenames, SI references
+and Table S4 expected values. No duplicate CCS core is introduced.
+See [S5_VALIDATION.md](S5_VALIDATION.md) for source hashes, transcription
+verification and reproducibility limitations.
 
 ## Tests
 
@@ -268,9 +338,10 @@ tests/test_s3_coverage.py
 tests/test_s4_practical.py
 tests/test_rdkit_projection.py
 tests/test_visualization.py
+tests/test_s5_examples.py
 ```
 
-The core suite also checks intrinsic isomorphism, immutability and defensive copying, deterministic S5 word generation for explicit nuclear order, multi-residue glycine macros, End eligibility boundaries, and valid/invalid macro arguments. Complete machine-readable transcription and independent cross-checking of all **55 S5 records / 84 forms** is intentionally deferred to a separate data-validation change after v1.0 API freeze; it is not claimed by this implementation PR.
+The core suite also checks intrinsic isomorphism, immutability and defensive copying, deterministic S5 word generation for explicit nuclear order, multi-residue glycine macros, End eligibility boundaries, and valid/invalid macro arguments. All 55 S5 records and 84 forms are maintained in the examples/s5 data fixture, and verified by executable Notebook and Replay tests.
 
 Run them with:
 

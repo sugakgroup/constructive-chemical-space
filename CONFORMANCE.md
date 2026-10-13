@@ -17,7 +17,8 @@ Date: 2026-10-13. Basis: *Defining Chemical Space Constructively*, Supporting In
 | S4.5 finite macros, argument admissibility, repeated Gly | `Macro`, `MacroCon`, `Arg` | `test_s4_practical.py` |
 | S5 deterministic `W(D)` relative to an explicit display enumeration | `ElectronAllocation.to_word(order=...)` | `test_s3_coverage.py` |
 | Non-normative RDKit projection; `n_empty` is not silently localized | `to_rdkit_mol`, `to_smiles` | `test_rdkit_projection.py` |
-| Optional S1/S5 CCS visualization; full explicit-H graph by default; non-normative allocation glyphs and q annotations | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
+| Optional S1/S5 visualization; full explicit-H graph, group-13–17 residual valence dots, atom-local q signs, and one generic ring-aware 2D layout (crossings weakly penalized even for planar graphs) and vector minus signs | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
+| S5 all 55 executed notebooks, 84 explicit W(D) words, full Form-specific D and M consistency, and 168 authentic SVG outputs | `examples/s5/data/manifest.json`, `examples/s5/data/s5_records.json.xz`, `ElectronAllocation.to_word(order=...)`, `Word.replay()` | `tests/test_s5_examples.py` |
 
 ## Reproducibility boundary
 
@@ -25,7 +26,7 @@ Date: 2026-10-13. Basis: *Defining Chemical Space Constructively*, Supporting In
 - Repeatable token sequences are guaranteed for a *fixed explicit sequence of the same nucleus objects*, passed as `to_word(order=...)`; no guarantee is made for token identity with omitted `order`.
 - RDKit atom formal charges, bond types, and SMILES are downstream heuristics, not CCS identity fields. `_CCSAssignmentImbalance` preserves the SI-derived q-value independently; `_CCSAuxCharge` is an older compatibility property.
 - `formal_charge(nucleus)` remains a deprecated alias for `assignment_imbalance(nucleus)`, not a claim of chemical formal-charge equivalence.
-- The S5 **55 records / 84 forms** are **not yet installed as a complete machine-readable fixture corpus**. Existing S5-related tests check the word convention and selected cases only. Complete independent transcription, counts/electron audits, Replay, and provenance checks require a separate data-validation change before making a full-corpus reproducibility claim.
+- The complete S5 **55 records / 84 forms** are indexed by 55 Jupyter notebooks under `examples/s5/notebooks/` and transcribed in `examples/s5/data/s5_records.json.xz`. `tests/test_s5_examples.py` checks each full form, lexicographic explicit-order W(D), and Replay identity. The PDF/DOCX cross-extraction audit and source hashes are recorded in `S5_VALIDATION.md`; CI does not itself regenerate the fixture from the source documents.
 - Passing executable regression tests supplies evidence for the specified cases; it is not a formal proof that all possible finite words or all physical systems have been exhaustively tested.
 
 ## Running validation
@@ -35,4 +36,17 @@ python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-CI: `.github/workflows/tests.yml` tests the S1-S4 core on Python 3.10, 3.11 and 3.12, and the complete suite with RDKit on Python 3.11. Compare the green workflow result to the pull-request HEAD commit; earlier successful runs must not be presented as proof of a newer HEAD.
+The development branch uses lightweight Python 3.11 smoke tests (nine real
+representative Jupyter notebooks). The `main` branch and non-Draft PRs
+retain the full Python 3.10/3.11/3.12 S1–S4 core matrix and a complete
+Python 3.11 regression suite. A `[full-validation]` commit or manual
+`workflow_dispatch` can request the full matrix before merge.
+
+The 55 actual executed notebooks and 168 SVGs were regenerated using the
+ring-aware layout and vector-minus rendering in
+[run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509);
+494 tests passed before and after saving their real outputs.
+`.github/workflows/execute_s5_notebooks.yml` provides optional **manual,
+read-only** regeneration and artifact export without auto-committing to any
+branch. CI verifies fixed S5 fixtures and source hashes, not a fresh audit
+of external PDF/DOCX files or every possible CCS object.

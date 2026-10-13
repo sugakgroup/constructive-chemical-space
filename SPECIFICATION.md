@@ -107,14 +107,40 @@ figure warns that H was omitted. In constitution view a stroke represents an
 S1 direct connection only, without implying bond multiplicity.
 
 In allocation view, standard graphical strokes are used only as a
-non-normative aid for selected endpoint allocations. Otherwise each displayed
-allocation is annotated using both endpoint indices and individual counts.
-The S1.4 assignment imbalance is presented as `q_v`, never as a
-conventional RDKit/Lewis formal charge. The visualization input is immutable
+non-normative aid for selected endpoint allocations. Nonstandard endpoint
+electron counts are positioned separately next to their contributing nuclei,
+using the coordinates of the actual drawn connection endpoints
+(`allocation_label_mode="endpoint"`, the default). SVG retains explicit
+`data-atom` and `data-electrons` metadata for each individual label,
+and PNG uses the same endpoint mapping. For backward-compatible central
+bond annotations use `allocation_label_mode="bond"`; to suppress labels use
+`"none"`. `label_all_allocations=True` additionally shows endpoint
+counts on conventional single/double/triple/dative glyphs. Neither labels
+nor line styles enter CCS intrinsic identity.
+The S1.4 assignment imbalance `q_v=Z_v-n_v` is represented by a compact
+atom-local sign (`+`, `−`, `2−`, etc.) and retained as explicit CCS
+metadata, **not** as an RDKit/Lewis formal charge. Group-13–17 atoms additionally
+display the nonnegative valence residual count
+`n_v - Σ_s a_{v,s} - (Z_v-(group_v-10))` as `•` glyphs; this is a formal
+accounting count and does **not** claim a particular spin state or a physically
+unique lone-pair interpretation. H and nuclei outside that p-block range
+receive no residual valence dots by default. The visualization input is immutable
 and does not acquire any display indices; caller-provided `order` is used
 only for reproducible depiction. Word-based displays use replay order by
-default. SVG generation requires RDKit, PNG requires RDKit and Pillow,
-and `show()` additionally requires IPython.
+default. SVG generation requires RDKit and NetworkX for planarity testing; PNG
+also requires Pillow, and `show()` additionally requires IPython. The 2D
+coordinate candidates are generated from direct nuclear connections alone,
+independently of endpoint-allocation drawing styles. RDKit and CoordGen are
+compared, and high-degree graphs additionally receive a CoordGen candidate
+with temporarily weakened hub connections. One graph-only score prioritizes
+recognizable ring/cage geometry, ring-centered fully incident hubs, balanced
+connection lengths and nonbonded separation. Crossings carry only a weak
+penalty even if the graph is planar. A seeded spring fallback is available
+if the primary engines fail. Mathematically nonplanar graphs carry a warning.
+The selection has **no special cases based on element, metal or named
+example**, and no physical 3D geometry is inferred. Negative auxiliary q
+signs are SVG `line` strokes, not Unicode minus characters, ensuring
+IPython cannot convert them into escaped byte text in saved notebooks.
 
 ## Stable v1.0 top-level imports
 
@@ -160,7 +186,7 @@ For `ElectronAllocation`, the public unassigned-electron field/keyword is `num_u
 
 ## Scope of S5 example verification
 
-PR #1 includes targeted examples and tests of the **S5 deterministic construction word convention** (including the zero-allocation H2 form). Machine-readable transcription and independent exact validation of the complete **55 S5 records / 84 electron-allocation forms** will be handled separately after API freeze. The latter full-corpus test is not a current claim of v1.0 conformance.
+The original PR #1 covers the **S5 deterministic construction-word convention**. PR #4 adds the complete machine-readable corpus of **55 S5 records and 84 electron-allocation forms**, individual explicit-word Jupyter notebooks, replay verification, and source-provenance checks. These are executable witnesses for the specified examples, not an assertion about physical geometry or exhaustive formal chemical space.
 
 ## Explicitly excluded from the v1.0 contract
 
