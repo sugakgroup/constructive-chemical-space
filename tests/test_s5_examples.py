@@ -65,9 +65,12 @@ def test_each_notebook_structure_and_manifest_matches_source(number):
         assert f"allocation_{letter} = state_{letter}.form" in source_cells[2]
         assert f"constitution_{letter} = allocation_{letter}.to_constitution()" in source_cells[2]
         assert f"allocation_{letter}.show(" in source_cells[4]
-    assert "constitution_A.show(" in source_cells[3]
+    for letter in entry["forms"]:
+        assert f"constitution_{letter}.show(" in source_cells[3]
+        assert f"constitution_{letter}.save(" in source_cells[5]
+        assert f"signature_{letter} == reference_constitution_signature" in source_cells[2]
+    assert "allocation_label_mode='endpoint'" in source_cells[3]
     assert "EXPORT = False" in source_cells[5]
-    assert "constitution_A.save(" in source_cells[5]
     # During the transition to executed notebooks, both clean source files
     # and fully kernel-executed files are valid; never fabricate output.
     provenance = obj["metadata"].get("ccs_execution")
@@ -92,7 +95,7 @@ def test_each_notebook_structure_and_manifest_matches_source(number):
         assert len(provenance["source_code_sha256"]) == 64
         assert len(provenance["svg_outputs_sha256"]) == 64
         assert display_count == provenance["actual_svg_outputs"]
-        assert display_count == 1 + entry["expected"]["forms"]
+        assert display_count == 2 * entry["expected"]["forms"]
 
 
 @pytest.mark.parametrize("number", range(1, 56))
@@ -228,7 +231,7 @@ def test_notebook_execution_report_when_available():
     assert report["status"] == "completed"
     assert report["notebook_count"] == 55
     assert report["form_count"] == 84
-    assert report["actual_svg_count"] == 139
+    assert report["actual_svg_count"] == 168
     assert len(report["notebooks"]) == 55
     assert [x["number"] for x in report["notebooks"]] == list(range(1, 56))
     for entry in report["notebooks"]:
@@ -263,6 +266,21 @@ def test_all_literal_notebook_words_replay_into_full_ccs_objects(number):
         assert constitution.total_charge == example.constitution.total_charge
         assert len(constitution.nuclei) == len(example.constitution.nuclei)
         assert len(constitution.connections) == len(example.constitution.connections)
+        from examples.s5._common import (
+            indexed_constitution_signature, indexed_allocation_signature,
+        )
+        # Exact construction/replay equality for every S5 Form, including
+        # large symmetric graphs where general graph isomorphism is expensive.
+        assert indexed_constitution_signature(
+            constitution, state.address_table
+        ) == indexed_constitution_signature(
+            example.constitution, example.order
+        )
+        assert indexed_allocation_signature(
+            form, state.address_table
+        ) == indexed_allocation_signature(
+            example.forms[label], example.order
+        )
 
 
 @pytest.mark.parametrize("number", range(1, 56))
@@ -281,7 +299,7 @@ def test_saved_notebook_output_hashes_match_kernel_report(number):
     assert report["generation_method"] == "nbclient NotebookClient.execute() with ipykernel"
     assert report["notebook_count"] == 55
     assert report["form_count"] == 84
-    assert report["actual_svg_count"] == 139
+    assert report["actual_svg_count"] == 168
 
     entry = ENTRIES[number - 1]
     measured = report["notebooks"][number - 1]
@@ -318,7 +336,7 @@ def test_saved_notebook_output_hashes_match_kernel_report(number):
             svg = "".join(svg) if isinstance(svg, list) else svg
             ET.fromstring(svg)
             payloads.append(svg)
-    assert len(payloads) == 1 + len(entry["forms"])
+    assert len(payloads) == 2 * len(entry["forms"])
     data_digest = hashlib.sha256("\n".join(payloads).encode("utf-8")).hexdigest()
     assert data_digest == meta["svg_outputs_sha256"]
     assert data_digest == measured["real_svg_sha256"]
