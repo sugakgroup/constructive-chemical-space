@@ -25,6 +25,8 @@ from collections import Counter
 from dataclasses import dataclass
 from math import ceil
 import re
+from types import MappingProxyType
+import warnings
 from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
 
 
@@ -236,16 +238,18 @@ def _build_rdkit_mol_once(
         if nucleus.identity.isotope is not None:
             atom.SetIsotope(nucleus.identity.isotope)
 
-        # q_v = Z(X(v)) - n_v is the natural first projection to an RDKit
-        # atom formal charge.  This is only a downstream representation;
-        # CCS itself does not identify q_v with a conventional Lewis charge
-        # for every allocation.
-        atom.SetFormalCharge(form.formal_charge(nucleus))
+        # RDKit requires a toolkit formal-charge field.  We use CCS q_v only
+        # as an initial projection heuristic; RDKit sanitization (including the
+        # optional dative retry) may yield different formal charges.  CCS q_v
+        # is an assignment imbalance, never a Lewis-charge assertion.
+        q_v = form.assignment_imbalance(nucleus)
+        atom.SetFormalCharge(q_v)
 
         if include_ccs_properties:
             atom.SetIntProp("_CCSAssignedElectrons", form.assigned_electrons(nucleus))
             atom.SetIntProp("_CCSResidualElectrons", form.residual_electrons(nucleus))
-            atom.SetIntProp("_CCSAuxCharge", form.formal_charge(nucleus))
+            atom.SetIntProp("_CCSAssignmentImbalance", q_v)
+            atom.SetIntProp("_CCSAuxCharge", q_v)  # backward-compatible RDKit property
             atom.SetProp("_CCSNuclearIdentity", nucleus.identity.label)
 
         index[nucleus] = rw.AddAtom(atom)
@@ -324,9 +328,11 @@ def _electron_allocation_to_rdkit_mol(
     index-independent place to store n_empty.  Set allow_unassigned=True to
     obtain a structural Mol carrying n_empty only as a molecule property.
 
-    Sanitization is tried first using q_v = Z - n as RDKit formal charges.
-    If that fails and a (2,0)/(0,2) dative allocation is present, a second
-    attempt shifts donor/acceptor charges by +1/-1, respectively.
+    The initial RDKit formal-charge projection uses the CCS assignment
+    imbalance q_v = Z - n as a heuristic, not a CCS definition of Lewis charge.
+    If sanitization fails and a (2,0)/(0,2) dative allocation is present,
+    a second attempt shifts donor/acceptor charges by +1/-1, respectively.
+    _CCSAssignmentImbalance retains the unchanged CCS quantity.
     """
     if form.num_unassigned_electrons and not allow_unassigned:
         message = (
@@ -587,10 +593,17 @@ class AllocatedConnection:
         )
 
 
+@dataclass(frozen=True, eq=False, init=False, slots=True)
 class Constitution:
-    """M = (C_X, S, N_e), intrinsically index-independent."""
+    """M = (C_X, S, N_e), intrinsically index-independent.
 
-    __slots__ = ("collection", "connections", "num_electrons")
+    Immutable after construction, so the S1.3 invariants cannot be bypassed
+    through ordinary attribute reassignment.
+    """
+
+    collection: NuclearCollection
+    connections: frozenset[Connection]
+    num_electrons: int
 
     def __init__(
         self,
@@ -598,21 +611,23 @@ class Constitution:
         connections: Iterable[Connection] = (),
         num_electrons: int = 0,
     ) -> None:
-        self.collection = (
+        normalized = (
             collection if isinstance(collection, NuclearCollection)
             else NuclearCollection(collection)
         )
         if not _is_nonnegative_int(num_electrons):
             raise ValueError("num_electrons must be a nonnegative integer")
-        self.num_electrons = num_electrons
 
         conns = frozenset(connections)
         for edge in conns:
             if not isinstance(edge, Connection):
                 raise TypeError("connections must contain Connection objects")
-            if edge.endpoint1 not in self.collection.nuclei or edge.endpoint2 not in self.collection.nuclei:
+            if edge.endpoint1 not in normalized.nuclei or edge.endpoint2 not in normalized.nuclei:
                 raise ValueError("every connection endpoint must belong to the nuclear collection")
-        self.connections = conns
+
+        object.__setattr__(self, "collection", normalized)
+        object.__setattr__(self, "connections", conns)
+        object.__setattr__(self, "num_electrons", num_electrons)
 
     @property
     def nuclei(self) -> frozenset[Nucleus]:
@@ -689,10 +704,18 @@ class Constitution:
         )
 
 
+@dataclass(frozen=True, eq=False, init=False, slots=True)
 class ElectronAllocation:
-    """D = (C_X, S, n, a, n_empty), intrinsically index-independent."""
+    """D = (C_X, S, n, a, n_empty), intrinsically index-independent.
 
-    __slots__ = ("collection", "_assigned", "allocated_connections", "num_unassigned_electrons")
+    Immutable after construction.  The assigned map is also read-only;
+    constructor arguments are copied so external mutation cannot change D.
+    """
+
+    collection: NuclearCollection
+    _assigned: Mapping[Nucleus, int]
+    allocated_connections: frozenset[AllocatedConnection]
+    num_unassigned_electrons: int
 
     def __init__(
         self,
@@ -701,23 +724,22 @@ class ElectronAllocation:
         allocated_connections: Iterable[AllocatedConnection] = (),
         num_unassigned_electrons: int = 0,
     ) -> None:
-        self.collection = (
+        normalized = (
             collection if isinstance(collection, NuclearCollection)
             else NuclearCollection(collection)
         )
-        nuclei = self.collection.nuclei
-
+        nuclei = normalized.nuclei
         assigned = dict(assigned_electrons)
         if set(assigned) != set(nuclei):
             raise ValueError("assigned_electrons must contain exactly one entry for every nucleus")
         if any(not _is_nonnegative_int(value) for value in assigned.values()):
             raise ValueError("assigned electron counts must be nonnegative integers")
-
         if not _is_nonnegative_int(num_unassigned_electrons):
             raise ValueError("num_unassigned_electrons must be a nonnegative integer")
 
         allocs = tuple(allocated_connections)
         seen_pairs: set[Connection] = set()
+        totals = {v: 0 for v in nuclei}
         for edge in allocs:
             if not isinstance(edge, AllocatedConnection):
                 raise TypeError("allocated_connections must contain AllocatedConnection objects")
@@ -726,17 +748,18 @@ class ElectronAllocation:
             if edge.connection in seen_pairs:
                 raise ValueError("parallel/duplicate connections are not allowed")
             seen_pairs.add(edge.connection)
+            totals[edge.endpoint1] += edge.allocation1
+            totals[edge.endpoint2] += edge.allocation2
+        if any(totals[v] > assigned[v] for v in nuclei):
+            raise ValueError(
+                "electron-allocation form is not well-formed: "
+                "endpoint allocations exceed assigned electrons"
+            )
 
-        self._assigned = assigned
-        self.allocated_connections = frozenset(allocs)
-        self.num_unassigned_electrons = num_unassigned_electrons
-
-        for nucleus in nuclei:
-            if self.allocated_sum(nucleus) > self.assigned_electrons(nucleus):
-                raise ValueError(
-                    "electron-allocation form is not well-formed: "
-                    "endpoint allocations exceed assigned electrons"
-                )
+        object.__setattr__(self, "collection", normalized)
+        object.__setattr__(self, "_assigned", MappingProxyType(assigned))
+        object.__setattr__(self, "allocated_connections", frozenset(allocs))
+        object.__setattr__(self, "num_unassigned_electrons", num_unassigned_electrons)
 
     @classmethod
     def empty(cls) -> "ElectronAllocation":
@@ -801,9 +824,23 @@ class ElectronAllocation:
     def residual_electrons(self, nucleus: Nucleus) -> int:
         return self.assigned_electrons(nucleus) - self.allocated_sum(nucleus)
 
-    def formal_charge(self, nucleus: Nucleus) -> int:
-        """Auxiliary q_v = Z(X(v)) - n_v; not an independently stored field."""
+    def assignment_imbalance(self, nucleus: Nucleus) -> int:
+        """S1.4 auxiliary q_v = Z(X(v)) - n_v (not Lewis formal charge)."""
         return nucleus.identity.atomic_number - self.assigned_electrons(nucleus)
+
+    def formal_charge(self, nucleus: Nucleus) -> int:
+        """Deprecated compatibility alias for assignment_imbalance().
+
+        This does NOT compute an RDKit/Lewis formal charge or oxidation state.
+        """
+        warnings.warn(
+            "ElectronAllocation.formal_charge() is deprecated; use "
+            "assignment_imbalance() for the CCS q_v quantity. This is not "
+            "necessarily a conventional Lewis formal charge.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.assignment_imbalance(nucleus)
 
     @property
     def num_electrons(self) -> int:
@@ -876,31 +913,32 @@ class ElectronAllocation:
     __hash__ = None
 
     def to_word(self, order: Sequence[Nucleus] | None = None) -> "Word":
-        """Construct one exact witness word as in S3.2.
+        """Construct the exact S5 W(D) for the chosen temporary enumeration.
 
-        The supplied order is a temporary enumeration only.  If omitted, an
-        arbitrary finite enumeration of V is chosen.
+        The nuclei are installed in the supplied order, followed by n_empty
+        Ele tokens and Con tokens sorted lexicographically by (i, j), i < j.
+        Endpoint allocations are reoriented to match the increasing addresses.
+        Without order, a noncanonical enumeration is chosen: intrinsic forms
+        deliberately have no preferred nuclear numbering (S1.2, S3.2).
         """
-        if order is None:
-            order = tuple(self.nuclei)
-        else:
-            order = tuple(order)
-            if len(order) != len(self.nuclei) or set(order) != set(self.nuclei):
-                raise ValueError("order must enumerate every nucleus exactly once")
-
+        order = _validate_nucleus_order(self, order)
         address = {v: i for i, v in enumerate(order)}
-        tokens: list[CoreToken] = [
+        tokens: list[CoreTokenType] = [
             Nuc(v.identity, self.assigned_electrons(v)) for v in order
         ]
         tokens.extend(Ele() for _ in range(self.num_unassigned_electrons))
+
+        connections: list[tuple[int, int, int, int]] = []
         for edge in self.allocated_connections:
-            tokens.append(
-                Con(
-                    address[edge.endpoint1],
-                    address[edge.endpoint2],                    edge.allocation1,
-                    edge.allocation2,
-                )
-            )
+            i, j = address[edge.endpoint1], address[edge.endpoint2]
+            if i > j:
+                i, j = j, i
+            connections.append((
+                i, j,
+                edge.allocation_for(order[i]),
+                edge.allocation_for(order[j]),
+            ))
+        tokens.extend(Con(i, j, ai, aj) for i, j, ai, aj in sorted(connections))
         return Word(tokens)
 
     def __repr__(self) -> str:
@@ -1498,6 +1536,10 @@ class Macro:
     def expand(self, arguments: Sequence[int], pre_invocation_nuclei: int) -> tuple[CoreTokenType, ...]:
         if len(arguments) != self.num_args:
             raise ValueError("wrong number of macro arguments")
+        if not _is_nonnegative_int(pre_invocation_nuclei):
+            raise ValueError("pre_invocation_nuclei must be nonnegative")
+        if any(not _is_nonnegative_int(k) for k in arguments):
+            raise ValueError("macro arguments must be nonnegative integer addresses")
 
         # An out-of-range external address makes the invocation contribute no tokens.
         if any(k >= pre_invocation_nuclei for k in arguments):
