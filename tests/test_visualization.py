@@ -219,3 +219,93 @@ def test_explicit_order_is_preserved_and_validated():
     assert _visual_source(d, order=(b, a))[1] == (b, a)
     with pytest.raises(ValueError):
         d.to_svg(order=(a, a))
+
+
+@pytest.mark.parametrize(
+    ("a", "b"), [(0, 0), (1, 0), (0, 1), (3, 2), (0, 9)]
+)
+def test_svg_endpoint_labels_are_attached_to_their_own_nuclei(a, b):
+    """Homonuclear asymmetric connections must never swap endpoint counts."""
+    left, right = Nucleus("C"), Nucleus("C")
+    d = ElectronAllocation(
+        [left, right], {left: 6, right: 9},
+        [AllocatedConnection(left, right, a, b)],
+    )
+    original = d.to_svg(order=(left, right))
+    root = ET.fromstring(original)
+    tags = [
+        element for element in root.iter()
+        if element.attrib.get("class") == "ccs-endpoint-allocation"
+    ]
+    assert len(tags) == 2
+    assert {
+        int(x.attrib["data-atom"]): int(x.attrib["data-electrons"])
+        for x in tags
+    } == {0: a, 1: b}
+    assert {x.text for x in tags} == {str(a), str(b)}
+    # Counts are located in two different parts of the drawn bond.
+    assert abs(float(tags[0].attrib["x"]) - float(tags[1].attrib["x"])) > 10
+
+    reversed_svg = d.to_svg(order=(right, left))
+    swapped = [
+        element for element in ET.fromstring(reversed_svg).iter()
+        if element.attrib.get("class") == "ccs-endpoint-allocation"
+    ]
+    assert {
+        int(x.attrib["data-atom"]): int(x.attrib["data-electrons"])
+        for x in swapped
+    } == {0: b, 1: a}
+    assert d.num_electrons == 15
+
+
+def test_endpoint_annotation_modes_and_unchanged_intrinsic_object():
+    d = ElectronAllocation.from_indexed(
+        ["H", "H"], [1, 1], [(0, 1, 1, 0)]
+    )
+    old_word = d.to_word()
+    svg = d.to_svg(width=650, height=400)
+    endpoint = [
+        node for node in ET.fromstring(svg).iter()
+        if node.attrib.get("class") == "ccs-endpoint-allocation"
+    ]
+    assert len(endpoint) == 2
+    assert {int(x.attrib["data-electrons"]) for x in endpoint} == {0, 1}
+    for mode in ("bond", "none"):
+        old_style = d.to_svg(allocation_label_mode=mode)
+        assert "class='ccs-endpoint-allocation' data-bond=" not in old_style
+    assert d.to_word().tokens == old_word.tokens
+    with pytest.raises(ValueError, match="allocation_label_mode"):
+        d.to_svg(allocation_label_mode="invalid")
+
+
+def test_png_renders_endpoint_labels_as_well():
+    d = ElectronAllocation.from_indexed(
+        ["H", "H"], [1, 1], [(0, 1, 1, 0)]
+    )
+    endpoint_png = d.to_png(width=650, height=400)
+    no_labels_png = d.to_png(
+        width=650, height=400, allocation_label_mode="none"
+    )
+    with Image.open(BytesIO(endpoint_png)) as image:
+        assert image.format == "PNG"
+        assert image.size == (650, 400)
+        assert image.convert("RGB").getpixel((0, 0)) == (255, 255, 255)
+    # The drawing must have actually changed, not just metadata or output bytes.
+    with Image.open(BytesIO(endpoint_png)) as image1, Image.open(BytesIO(no_labels_png)) as image2:
+        from PIL import ImageChops
+        assert ImageChops.difference(
+            image1.convert("RGB"), image2.convert("RGB")
+        ).getbbox() is not None
+
+
+def test_conventional_allocation_labels_are_optional():
+    d = ElectronAllocation.from_indexed(
+        ["H", "H"], [1, 1], [(0, 1, 1, 1)]
+    )
+    for include, expected in ((False, 0), (True, 2)):
+        svg = d.to_svg(label_all_allocations=include)
+        labels = [
+            item for item in ET.fromstring(svg).iter()
+            if item.attrib.get("class") == "ccs-endpoint-allocation"
+        ]
+        assert len(labels) == expected
