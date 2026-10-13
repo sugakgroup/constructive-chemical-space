@@ -160,3 +160,30 @@ crossing-aware 2D layout. The output includes nucleus-local CCS q signs
 and residual valence dots, plus warnings where 2D planarity is impossible.
 The execution report's captured SVG/source hashes are independently checked
 by `tests/test_s5_examples.py`.
+
+### Cluster schematics and portable electron-dot graphics
+
+The optional 2D depiction uses a schematic separated-ligand arrangement for
+multi-decker complexes, a metal-in-shell radial layout for Ni@Pb12 and three
+visually separated N-to-N bridges for 2.2.2 cryptand hosts. These sketches
+retain **all** CCS nuclear incidences but are not computed 3D geometries.
+For genuinely nonplanar graphs, some line crossings remain mathematically
+unavoidable; the figure retains the explicit warning. Use
+`layout="cluster"` to force the specialized view (or `"auto"` to detect
+the motif); `layout="coordgen"` / `"rdkit"` remain available to compare
+against the generic layout.
+
+Residual valence electron dots are rendered using actual SVG vector
+`<circle>` primitives and equivalent PNG ellipses, not the font-dependent
+UTF-8 `•` character. Per-nucleus residual counts and origin are retained as
+numeric SVG data attributes. This avoids the `\xe2\x80\xa2` text-display
+issue while preserving the exact CCS electron bookkeeping.
+
+### CI usage
+
+Ordinary PR #4 branch pushes now run a **single representative smoke**
+(Python 3.11, eight S5 records including Lu2(Pc)3, Ni@Pb12, and both cryptand
+examples). Their kernel outputs are intentionally ephemeral and are never
+committed or called the complete validation. The **full 55-notebook execution
+and saved-output refresh** and the full version matrix run only by manually
+dispatching the corresponding GitHub Actions workflows at final review.

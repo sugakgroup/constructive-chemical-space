@@ -55,10 +55,10 @@ jobs:
             'tests/test_s5_examples.py::test_all_literal_notebook_words_replay_into_full_ccs_objects[13]' \
             'tests/test_s5_examples.py::test_all_literal_notebook_words_replay_into_full_ccs_objects[36]' \
             'tests/test_s5_examples.py::test_all_literal_notebook_words_replay_into_full_ccs_objects[46]'
-      - name: Real ipykernel smoke — six representative SI examples, not 55
+      - name: Real ipykernel smoke — eight representative SI examples, not 55
         run: |
           python examples/s5/generate_explicit_words.py
-          python examples/s5/execute_notebooks.py --records 1 2 10 13 17 36
+          python examples/s5/execute_notebooks.py --records 2 13 18 21 42 43 44 46
           echo "Smoke outputs are ephemeral and are never committed as full-corpus results."
 
   final-full-suite:

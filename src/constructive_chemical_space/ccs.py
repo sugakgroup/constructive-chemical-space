@@ -2122,6 +2122,262 @@ def _ccs_segment_intersections(mol) -> int:
     return conflicts
 
 
+
+def _ccs_cluster_fragment_positions(mol, graph, nodes):
+    """Layout an isolated ligand fragment without a metal-incidence tangle.
+
+    A temporary all-single-stroke *drawing graph* is used only to derive 2D
+    coordinates; none of its RDKit chemical annotations enter the CCS form.
+    """
+    from rdkit import Chem
+    from rdkit.Chem import rdCoordGen, rdDepictor
+    original = tuple(sorted(nodes))
+    address = {old: i for i, old in enumerate(original)}
+    working = Chem.RWMol()
+    for _ in original:
+        atom = Chem.Atom("C")
+        atom.SetNoImplicit(True)
+        working.AddAtom(atom)
+    for a, b in sorted(graph.subgraph(original).edges()):
+        working.AddBond(address[a], address[b], Chem.BondType.SINGLE)
+    tmp = working.GetMol()
+    tmp.UpdatePropertyCache(strict=False)
+    try:
+        rdCoordGen.AddCoords(tmp)
+    except (RuntimeError, ValueError):
+        rdDepictor.Compute2DCoords(tmp)
+    conf = tmp.GetConformer()
+    return {
+        old: (float(conf.GetAtomPosition(i).x), float(conf.GetAtomPosition(i).y))
+        for i, old in enumerate(original)
+    }
+
+
+def _ccs_cluster_positions(mol, graph):
+    """Return a schematic, deliberately nonphysical coordination layout.
+
+    Two types are distinguished by graph structure, not named S5 records:
+    metal-connected cage shells and several independent macrocycle ligands.
+    Cryptand-like N–(three paths)–N scaffolds get three separated arches.
+    """
+    import networkx as nx
+    symbols = {i: mol.GetAtomWithIdx(i).GetSymbol() for i in graph.nodes()}
+    # Lead belongs to the p-block cage rather than the coordination hubs.
+    # For ordinary organometallic examples require an actual highly incident
+    # non-p-block metal, not just a 3-connected N or C atom.
+    non_hub = {"H", "B", "C", "N", "O", "F", "P", "S",
+               "Se", "Cl", "Br", "I", "At", "Pb"}
+    hubs = [
+        i for i in sorted(graph)
+        if graph.degree(i) >= 6 and symbols[i] not in non_hub
+    ]
+    if not 1 <= len(hubs) <= 2:
+        return None
+
+    rest = graph.copy()
+    rest.remove_nodes_from(hubs)
+    components = sorted(nx.connected_components(rest), key=min)
+    large = [group for group in components if len(group) >= 6]
+
+    if len(hubs) == 1 and len(large) == 1:
+        hub = hubs[0]
+        scaffold = large[0]
+        # A theta graph of three independent arms (e.g. 2.2.2 cryptand):
+        # its bridge atoms are spread in three rows rather than overplotted.
+        heavy = [
+            v for v in scaffold if symbols[v] not in {"H", "K", "Na"}
+        ]
+        heavy_graph = rest.subgraph(heavy)
+        bridge_ends = [
+            v for v in heavy_graph if symbols[v] == "N"
+            and heavy_graph.degree(v) == 3
+        ]
+        if 20 <= len(heavy) <= 35 and len(bridge_ends) == 2:
+            endpoints = sorted(bridge_ends)
+            arms = list(nx.all_simple_paths(
+                heavy_graph, endpoints[0], endpoints[1], cutoff=35
+            ))
+            if (len(arms) == 3
+                    and len({len(path) for path in arms}) == 1
+                    and all(len(path) >= 5 for path in arms)
+                    and len(set(v for path in arms for v in path[1:-1]))
+                    == len(arms) * (len(arms[0]) - 2)):
+                arms.sort(key=lambda path: min(path[1:-1]))
+                positions = {}
+                arm_numbers = {}
+                for arm_i, path in enumerate(arms):
+                    amplitude = (4.0, 0.0, -4.0)[arm_i]
+                    for j, v in enumerate(path):
+                        fraction = j / (len(path) - 1)
+                        x = -9.0 + 18.0 * fraction
+                        y = amplitude * sin(pi * fraction)
+                        positions[v] = (x, y)
+                        if v not in endpoints:
+                            arm_numbers[v] = arm_i
+                for v in heavy:
+                    hs = sorted(
+                        j for j in graph.neighbors(v)
+                        if symbols[j] == "H"
+                    )
+                    if not hs:
+                        continue
+                    connected = [
+                        positions[k] for k in heavy_graph.neighbors(v)
+                        if k in positions
+                    ]
+                    x, y = positions[v]
+                    if len(connected) >= 2:
+                        dx = connected[-1][0] - connected[0][0]
+                        dy = connected[-1][1] - connected[0][1]
+                    elif connected:
+                        dx, dy = connected[0][0] - x, connected[0][1] - y
+                    else:
+                        dx, dy = 1.0, 0.0
+                    scale = max(1e-8, hypot(dx, dy))
+                    tx, ty = dx / scale, dy / scale
+                    nx_, ny_ = -ty, tx
+                    arm_i = arm_numbers.get(v, 1)
+                    side = (1, 0, -1)[arm_i]
+                    for h_i, h in enumerate(hs):
+                        if side:
+                            shift = 1.45 * side
+                            along = (-0.75 if h_i % 2 == 0 else 0.75)
+                        else:
+                            shift = 1.35 if h_i % 2 == 0 else -1.35
+                            along = 0.0
+                        positions[h] = (
+                            x + shift * nx_ + along * tx,
+                            y + shift * ny_ + along * ty,
+                        )
+                positions[hub] = (0.0, 8.5)
+                # Unconnected counterions remain independent positions.
+                for k, group in enumerate(components):
+                    if group == scaffold:
+                        continue
+                    for j, v in enumerate(sorted(group)):
+                        positions[v] = (-14.0 - 4.0 * k, 8.0 + j * 2.0)
+                if len(positions) == mol.GetNumAtoms():
+                    return positions, "three-bridge-cryptand"
+
+    if 2 <= len(large) <= 4:
+        local = [
+            _ccs_cluster_fragment_positions(mol, graph, group)
+            for group in large
+        ]
+        spans = [
+            max(x for x, _ in xy.values()) - min(x for x, _ in xy.values())
+            for xy in local
+        ]
+        gap = max(spans) + 8.0
+        centers = [
+            (i - (len(large) - 1) / 2.0) * gap
+            for i in range(len(large))
+        ]
+        coords = {}
+        for center, fragment in zip(centers, local):
+            mx = sum(x for x, _ in fragment.values()) / len(fragment)
+            my = sum(y for _, y in fragment.values()) / len(fragment)
+            coords.update({
+                v: (x - mx + center, y - my)
+                for v, (x, y) in fragment.items()
+            })
+        for hub in hubs:
+            neighbors = [
+                i for i, group in enumerate(large)
+                if any(graph.has_edge(hub, v) for v in group)
+            ]
+            if len(neighbors) >= 2:
+                coords[hub] = (
+                    sum(centers[i] for i in neighbors) / len(neighbors), 0.0
+                )
+            elif len(neighbors) == 1:
+                coords[hub] = (centers[neighbors[0]] + 0.55 * gap, 0.0)
+            else:
+                coords[hub] = (max(centers) + gap, 0.0)
+        for k, group in enumerate(components):
+            if group in large:
+                continue
+            independent = _ccs_cluster_fragment_positions(
+                mol, graph, group
+            )
+            for v, (x, y) in independent.items():
+                coords[v] = (min(centers) - gap - 5.0 * k + x, y)
+        if len(coords) == mol.GetNumAtoms():
+            return coords, "separated-ligand-layers"
+
+    if len(hubs) == 1 and len(large) == 1:
+        hub, scaffold = hubs[0], large[0]
+        inner = rest.subgraph(scaffold)
+        degree_mean = (
+            sum(inner.degree(v) for v in scaffold) / len(scaffold)
+        )
+        if 10 <= len(scaffold) <= 16 and degree_mean >= 4.0:
+            # A central kernel and surrounding connected outer cage.
+            spring = nx.spring_layout(
+                inner, seed=23, iterations=280
+            )
+            ring = sorted(
+                scaffold,
+                key=lambda v: (
+                    __import__("math").atan2(spring[v][1], spring[v][0]), v
+                )
+            )
+            radius = max(6.0, len(ring) / 2.0)
+            coords = {hub: (0.0, 0.0)}
+            for j, v in enumerate(ring):
+                theta = 2.0 * pi * j / len(ring)
+                coords[v] = (
+                    radius * cos(theta), radius * sin(theta)
+                )
+            if len(coords) == mol.GetNumAtoms():
+                return coords, "metal-centered-shell"
+        if len(scaffold) >= 20:
+            # Pull high-incidence metal away from a dense organic host graph.
+            coords = _ccs_cluster_fragment_positions(
+                mol, graph, scaffold
+            )
+            max_x = max(x for x, _ in coords.values())
+            min_x = min(x for x, _ in coords.values())
+            neighbors = [
+                coords[v][1] for v in graph.neighbors(hub)
+                if v in coords
+            ]
+            coords[hub] = (
+                max_x + 4.0,
+                sum(neighbors) / len(neighbors) if neighbors else 0.0
+            )
+            for k, group in enumerate(components):
+                if group == scaffold:
+                    continue
+                other = _ccs_cluster_fragment_positions(
+                    mol, graph, group
+                )
+                for v, (x, y) in other.items():
+                    coords[v] = (min_x - 7.0 - 4.0 * k + x, y)
+            if len(coords) == mol.GetNumAtoms():
+                return coords, "separated-metal-host"
+    return None
+
+
+def _ccs_apply_cluster_geometry(mol, graph):
+    """Install a reproducible schematic 2D layout if a cluster motif exists."""
+    from rdkit import Chem
+    candidate = _ccs_cluster_positions(mol, graph)
+    if candidate is None:
+        return False
+    positions, style = candidate
+    if len(positions) != mol.GetNumAtoms():
+        return False
+    conf = Chem.Conformer(mol.GetNumAtoms())
+    for i in range(mol.GetNumAtoms()):
+        x, y = positions[i]
+        conf.SetAtomPosition(i, (float(x), float(y), 0.0))
+    mol.RemoveAllConformers()
+    mol.AddConformer(conf, assignId=True)
+    mol.SetProp("_CCSClusterLayoutKind", style)
+    return True
+
+
 def _ccs_layout_2d(mol, layout: str) -> None:
     """Prefer legible CoordGen geometry; enforce no crossings when planar.
 
@@ -2146,13 +2402,18 @@ def _ccs_layout_2d(mol, layout: str) -> None:
     )
     planar, _ = nx.check_planarity(graph)
     mol.SetBoolProp("_CCSPlanarGraph", bool(planar))
-    use_coordgen = (
-        layout == "coordgen" or
-        (layout == "auto" and mol.GetNumAtoms() >= 8
-         and mol.GetNumBonds() >= 6)
-    )
+    # Structurally separated ligands, cage shells, and three-bridge hosts are
+    # far more readable than generic 2D geometry around a high-degree metal.
+    # This is schematic graph layout, not a calculated molecular geometry.
     done = False
-    if use_coordgen:
+    if layout in {"auto", "cluster"}:
+        done = _ccs_apply_cluster_geometry(mol, graph)
+    use_coordgen = (
+        layout == "coordgen"
+        or (layout in {"auto", "cluster"} and mol.GetNumAtoms() >= 8
+            and mol.GetNumBonds() >= 6)
+    )
+    if use_coordgen and not done:
         try:
             from rdkit.Chem import rdCoordGen
             rdCoordGen.AddCoords(mol)
@@ -2177,6 +2438,8 @@ def _ccs_layout_2d(mol, layout: str) -> None:
                     p = xy[i]
                     conf.SetAtomPosition(i, (float(p[0]), float(p[1]), 0.0))
             crossing_count = _ccs_segment_intersections(mol)
+            if mol.HasProp("_CCSClusterLayoutKind"):
+                mol.SetProp("_CCSClusterLayoutKind", "planar-fallback")
         except Exception as exc:
             raise CCSVisualizationError(
                 "A planar graph could not be laid out without crossing"
@@ -2310,8 +2573,8 @@ def _ccs_render_options(
         raise TypeError("show_hydrogens must be a boolean; default is True")
     if allocation_label_mode not in {"endpoint", "bond", "none"}:
         raise ValueError("allocation_label_mode must be endpoint, bond or none")
-    if layout not in {"auto", "coordgen", "rdkit"}:
-        raise ValueError("layout must be 'auto', 'coordgen' or 'rdkit'")
+    if layout not in {"auto", "coordgen", "rdkit", "cluster"}:
+        raise ValueError("layout must be 'auto', 'coordgen', 'rdkit' or 'cluster'")
 
     source, display_order, kind = _visual_source(obj, view=view, order=order)
     mol = _build_ccs_visual_mol(
@@ -2336,6 +2599,10 @@ def _ccs_render_options(
     )
     if mol.GetBoolProp("_CCSNonPlanar2D"):
         footer.append("Non-planar graph: crossings unavoidable in 2D")
+    if mol.HasProp("_CCSClusterLayoutKind") and (
+        mol.GetProp("_CCSClusterLayoutKind") != "planar-fallback"
+    ):
+        footer.append("Schematic cluster arrangement (not a 3D geometry)")
     footer_height = max(40, 8 + len(footer) * (footer_font_size + 3))
     drawing_height = height - footer_height
     if drawing_height < 80:
@@ -2404,16 +2671,32 @@ def _render_ccs_svg(
     endpoint_glyphs.append("</g>")
     nuclear_glyphs = ["<g class='ccs-nuclear-annotations'>"]
     for atom_index, kind, glyph, count, x, y in nuclear_annotations:
-        nuclear_glyphs.append(
-            f"<text class='ccs-nuclear-annotation' "
-            f"data-atom='{atom_index}' data-kind='{kind}' "
-            f"data-count='{count}' x='{x:.2f}' y='{y + 4.3:.2f}' "
-            "text-anchor='middle' font-family='sans-serif' "
-            "font-size='16px' fill='#222222' stroke='white' "
-            "stroke-width='3px' stroke-linejoin='round' "
-            "paint-order='stroke fill'>"
-            f"{html.escape(glyph)}</text>"
-        )
+        if kind == "residual":
+            # Vector circles avoid all UTF-8 / bullet-font serialization and
+            # SVG-client glyph-rendering differences. Metadata remains exact.
+            nuclear_glyphs.append(
+                f"<g class='ccs-nuclear-annotation' "
+                f"data-atom='{atom_index}' data-kind='residual' "
+                f"data-count='{count}'>"
+            )
+            for index in range(count):
+                dot_x = x + (index - (count - 1) / 2.0) * 7.4
+                nuclear_glyphs.append(
+                    f"<circle cx='{dot_x:.2f}' cy='{y:.2f}' "
+                    "r='2.7' fill='#222222'/>"
+                )
+            nuclear_glyphs.append("</g>")
+        else:
+            nuclear_glyphs.append(
+                f"<text class='ccs-nuclear-annotation' "
+                f"data-atom='{atom_index}' data-kind='{kind}' "
+                f"data-count='{count}' x='{x:.2f}' y='{y + 4.3:.2f}' "
+                "text-anchor='middle' font-family='sans-serif' "
+                "font-size='16px' fill='#222222' stroke='white' "
+                "stroke-width='3px' stroke-linejoin='round' "
+                "paint-order='stroke fill'>"
+                f"{html.escape(glyph)}</text>"
+            )
     nuclear_glyphs.append("</g>")
 
     # Extend the RDKit canvas with a separate full-system metadata footer.
@@ -2537,17 +2820,25 @@ def _render_ccs_png(
     except OSError:
         nuclear_font = ImageFont.load_default()
     for atom_index, kind, glyph, count, x, y in nuclear_annotations:
-        box = text_draw.textbbox((0, 0), glyph, font=nuclear_font)
-        tw, th = box[2] - box[0], box[3] - box[1]
-        left, top = x - tw / 2, y - th / 2
-        text_draw.rectangle(
-            (left - 2, top - 2, left + tw + 2, top + th + 2),
-            fill="white",
-        )
-        text_draw.text(
-            (left - box[0], top - box[1]), glyph, fill="#222222",
-            font=nuclear_font,
-        )
+        if kind == "residual":
+            for index in range(count):
+                dx = x + (index - (count - 1) / 2.0) * 7.4
+                text_draw.ellipse(
+                    (dx - 2.7, y - 2.7, dx + 2.7, y + 2.7),
+                    fill="#222222",
+                )
+        else:
+            box = text_draw.textbbox((0, 0), glyph, font=nuclear_font)
+            tw, th = box[2] - box[0], box[3] - box[1]
+            left, top = x - tw / 2, y - th / 2
+            text_draw.rectangle(
+                (left - 2, top - 2, left + tw + 2, top + th + 2),
+                fill="white",
+            )
+            text_draw.text(
+                (left - box[0], top - box[1]), glyph, fill="#222222",
+                font=nuclear_font,
+            )
     try:
         font = ImageFont.truetype("DejaVuSans.ttf", font_size)
     except OSError:

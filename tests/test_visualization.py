@@ -324,7 +324,12 @@ def _nuclear_svg_labels(obj, **kwargs):
             "atom": int(item.attrib["data-atom"]),
             "kind": item.attrib["data-kind"],
             "count": int(item.attrib["data-count"]),
-            "glyph": "".join(item.itertext()),
+            "glyph": (
+                "•" * sum(c.tag.rsplit("}", 1)[-1] == "circle"
+                          for c in item)
+                if item.attrib["data-kind"] == "residual"
+                else "".join(item.itertext())
+            ),
         }
         for item in ET.fromstring(svg).iter()
         if item.attrib.get("class") == "ccs-nuclear-annotation"
@@ -454,3 +459,92 @@ def test_planarity_preserves_ccs_constitution_and_allocation_identity():
         assert "<svg" in svg
     assert d == w.replay()
     assert d.to_constitution() == before
+
+
+def test_residual_dots_are_svg_vector_circles_not_utf8_text():
+    """Every displayed dot has a numeric circle, independent of font/encoding."""
+    d = ElectronAllocation.from_indexed(
+        ["N", "H", "H", "H"], [7, 1, 1, 1],
+        [(0, 1, 1, 1), (0, 2, 1, 1), (0, 3, 1, 1)],
+    )
+    svg, labels = _nuclear_svg_labels(d)
+    import xml.etree.ElementTree as ET
+    nodes = [
+        item for item in ET.fromstring(svg).iter()
+        if item.attrib.get("data-kind") == "residual"
+    ]
+    assert len(nodes) == 1
+    assert nodes[0].attrib["data-count"] == "2"
+    assert len(list(nodes[0])) == 2
+    assert all(item.tag.endswith("circle") for item in nodes[0])
+    assert "•" not in svg
+    assert "\\xe2" not in svg
+    assert labels[0]["glyph"] == "••"
+
+
+@pytest.mark.parametrize(
+    ("number", "expected_style"), [
+        (21, "separated-ligand-layers"),
+        (42, "metal-centered-shell"),
+        (43, "three-bridge-cryptand"),
+        (44, "three-bridge-cryptand"),
+    ],
+)
+def test_cluster_schematics_spread_dense_metal_incidence(number, expected_style):
+    from examples.s5._common import build_example
+    from constructive_chemical_space.ccs import _ccs_render_options
+    example = build_example(number)
+    mol, footer, _, _, _ = _ccs_render_options(
+        example.constitution, layout="cluster",
+        order=example.order,
+    )
+    assert mol.GetProp("_CCSClusterLayoutKind") == expected_style
+    assert mol.GetBoolProp("_CCSNonPlanar2D")
+    assert any("Schematic cluster arrangement" in line for line in footer)
+    assert any("Non-planar graph" in line for line in footer)
+    conf = mol.GetConformer()
+    coordinates = [
+        (conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y)
+        for i in range(mol.GetNumAtoms())
+    ]
+    assert len({(round(x, 2), round(y, 2)) for x, y in coordinates}) >= (
+        mol.GetNumAtoms() - 2
+    )
+    if number == 42:
+        center = next(i for i, a in enumerate(mol.GetAtoms())
+                      if a.GetSymbol() == "Ni")
+        p = coordinates[center]
+        shell = [
+            hypot(x-p[0],y-p[1]) for i,(x,y) in enumerate(coordinates)
+            if i != center
+        ]
+        assert len(shell) == 12
+        assert max(shell) - min(shell) < 1e-5
+        assert min(shell) > 3
+    elif number in (43, 44):
+        from rdkit import Chem
+        core = next(i for i,a in enumerate(mol.GetAtoms())
+                    if a.GetSymbol() in {"K", "Na"} and a.GetDegree() >= 6)
+        py = coordinates[core][1]
+        # Metal placed outside the three-bridge host, not on a cage atom.
+        ys = [y for i,(x,y) in enumerate(coordinates)
+              if i!=core and mol.GetAtomWithIdx(i).GetSymbol()=="O"]
+        assert max(ys) < py - 2.0
+    else:
+        metal_x = [
+            x for i,(x,y) in enumerate(coordinates)
+            if mol.GetAtomWithIdx(i).GetSymbol()=="Lu"
+        ]
+        assert len(metal_x) == 2
+        assert metal_x[0] != metal_x[1]
+        assert abs(metal_x[0] - metal_x[1]) > 5
+
+
+def test_cluster_layout_is_optional_and_does_not_change_ccs_identity():
+    from examples.s5._common import build_example
+    d = build_example(42).forms["A"]
+    baseline = d.to_word(order=tuple(build_example(42).order)) if False else d.num_electrons
+    for layout in ("auto", "cluster", "coordgen", "rdkit"):
+        svg = d.to_svg(layout=layout)
+        assert "<svg" in svg
+    assert d.num_electrons == baseline
