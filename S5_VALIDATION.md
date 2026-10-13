@@ -10,7 +10,7 @@ The PDF supplies SI S5's n_empty and N_e where Word equation objects do not appe
 
 PDF page-header text can divide a single printed connection/allocation token. Such headers were removed before parsing; complete extracted nucleus lists, connection sets, per-form assigned counts, and endpoint allocations then agreed with the separate DOCX extraction. No SI source value has been silently adjusted.
 
-## Offline source audit (2026-10-13)
+## Original PDF/DOCX extraction audit (2026-10-13; pre-Record-13 correction)
 
 | Check | Result |
 | --- | ---: |
@@ -27,9 +27,10 @@ There are 1,793 nucleus entries and 2,014 connection entries over the 55 example
 
 - SI PDF SHA-256: `777f7746048a1859aef9c955a0346063082a3ff91384c319dfc90b765bfa31b5`
 - SI DOCX SHA-256: `00513db5f6d68fe456911460cbedbf185f77393d01e2642d081079a0c09cb89a`
-- Compressed fixture SHA-256: `1a9c1dcd119159aba4a95ff9941ea73110de18f97583200e33b3578df6aad8dd`
+- Original (pre-author-correction) fixture SHA-256: `1a9c1dcd119159aba4a95ff9941ea73110de18f97583200e33b3578df6aad8dd`
+- Corrected fixture SHA-256: `0b10a14089114d4e0aca44a99f45ca68a78bb6bea5232d0ba5304b98ba98e426` (also verified from `manifest.json`)
 
-The data blob was uploaded byte-for-byte (Git blob SHA-1 `f594259a60a87756d223ec0183704ea1f02925ec`). The `n_empty=1` cases are records 43, 46, and 48, including the electron-only form on SI PDF page 61.
+The original fixture blob was uploaded byte-for-byte (Git blob SHA-1 `f594259a60a87756d223ec0183704ea1f02925ec`); this historical Git blob is not the current author-corrected fixture. The `n_empty=1` cases are records 43, 46, and 48, including the electron-only form on SI PDF page 61.
 
 ## Machine-readable fixture
 
@@ -75,7 +76,7 @@ the constructed objects. The diagrams display **these replay-generated
 objects**, not the reference fixture forms.
 
 The actual notebook outputs **are committed**. They were produced by
-[GitHub Actions run 38357651689](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38357651689),
+[GitHub Actions run 38362379662](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38362379662),
 which executed all 55 notebooks through real Jupyter ipykernels via
 `nbclient.NotebookClient.execute()`, with six executed code cells per Notebook.
 Each Form A/B/C/D has its own complete, literal construction Word, Replay,
