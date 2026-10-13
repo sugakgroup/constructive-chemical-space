@@ -5,10 +5,12 @@ have **one executable Jupyter notebook per SI record**. Together they cover all
 **84 fully specified electron-allocation forms**.
 
 Start with [S5_01_H2.ipynb](notebooks/S5_01_H2.ipynb), then browse the
-[notebooks/](notebooks/) directory. Each notebook independently loads its S5
-record, validates the lexicographically ordered construction word `W(D)`, replays
-it into the original electron-allocation form, and draws the **constitution and
-every displayed Form** using the existing `.show()` method.
+[notebooks/](notebooks/) directory. Each notebook contains **literal**
+`word_A = Word([Nuc(...), Ele(), Con(...)])` definitions (one per Form),
+then actually calls `replay_state()`, obtains new `allocation_A` and
+`constitution_A` objects, and displays **those replay-produced objects**
+through `.show()`. The SI source Form is used independently to check that
+the explicit Word and resulting objects are correct; it is not what is drawn.
 
 ## Installation
 
@@ -34,7 +36,11 @@ notebook directory.
 - `_common.py` contains only convenience loading, verification and export
   utilities. It **does not duplicate or modify** the CCS implementation.
 - `outputs/` is for optional locally generated SVG/PNG files and is ignored
-  by Git; notebook outputs are not committed.
+  by Git. By contrast, genuine Jupyter `display_data` SVG output **is stored
+  directly inside the 55 executed notebooks**; these were produced by
+  `nbclient` using real `ipykernel` executions, not synthesized afterward.
+- `execution_report.json` stores the original execution run ID, per-notebook
+  kernel execution counts, SVG counts and SHA-256 checksums.
 - `tests/test_s5_examples.py` verifies notebook completeness and all Forms.
 
 No extra primitive is introduced. All nuclei including H remain explicit.
@@ -43,6 +49,38 @@ Index choices do not change intrinsic CCS identity. Named descriptions and
 depiction strokes do not assert computed orbital properties or physical
 realizability. Catenation, stereochemistry and spatial arrangement remain
 outside constitutional identity under SI S1.
+
+## Literal construction words and real execution provenance
+
+The Notebook word-definition source is produced by
+`generate_explicit_words.py` from the independently audited S5 dataset:
+each Nuc, Ele and Con token is **written literally into the Notebook's code
+cell**, rather than being computed at Notebook execution time by calling
+`form.to_word()`. The following cell replays that literal Word into a fresh
+ElectronAllocation and Constitution; the visualization cells display these
+**generated** objects with their own replay address order.
+
+The output currently checked into PR #4 was produced by an actual Jupyter
+kernel for **all 55 notebooks**, yielding **139 real SVG images** (55
+constitution diagrams and 84 allocation diagrams). Each notebook has six
+actually executed code cells. The execution environment was Python 3.11.17,
+RDKit 2026.09.1 and nbclient 0.11.0. The execution and full verification log
+is [GitHub Actions run 38354095805](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38354095805).
+
+**No output or execution_count field is simulated.** To regenerate, execute
+the following two commands together after installing the dependencies:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pip install nbclient nbformat ipykernel
+python examples/s5/generate_explicit_words.py  # rewrites source-only notebooks
+python examples/s5/execute_notebooks.py         # real kernel execution and SVG capture
+```
+
+The first script deliberately resets every code cell to *unexecuted* (empty
+outputs and null execution counts); the second uses NotebookClient to save
+only genuine outputs after all assertions succeed. Do not commit the
+source-only intermediate notebooks as though they were executed.
 
 ## Working in Python
 
