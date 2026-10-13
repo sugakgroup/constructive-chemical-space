@@ -1,0 +1,37 @@
+# CCS v1.0 reference-implementation conformance record
+
+Date: 2026-10-13. Basis: *Defining Chemical Space Constructively*, Supporting Information Sections S1-S4 and the Section S5 construction-word convention. The SI is normative; this file is an implementation/verification record, not a replacement specification.
+
+## Requirement-to-test traceability
+
+| SI requirement | Implementation | Regression tests |
+| --- | --- | --- |
+| S1.2-S1.3 intrinsic, index-independent constitutions and simple direct connections | `NuclearCollection`, `Constitution`, `_constitution_isomorphic` | `test_s1_formal.py` |
+| S1.4 nonnegative assignments and endpoint budgets; zero-allocation edges | `ElectronAllocation`, `AllocatedConnection` | `test_s1_formal.py` |
+| S1.4 assignment imbalance `q_v = Z(X(v)) - n_v` as auxiliary quantity | `ElectronAllocation.assignment_imbalance` | `test_s1_formal.py`, `test_rdkit_projection.py` |
+| S1 intrinsic equality for relabeled, symmetric forms | `_constitution_isomorphic`, `_allocation_isomorphic` | `test_s1_formal.py` (including all 24 relabelings of a 4-nucleus form) |
+| S1 value-object well-formedness after construction | immutable `Constitution`, immutable `ElectronAllocation`, defensive read-only assignment mapping | `test_s1_formal.py` |
+| S2 admissible Nuc/Ele and total Con no-op replay | `Nuc`, `Ele`, `Con`, `ExecutionState`, `Word` | `test_s2_replay.py` |
+| S3.2 exact constructability and all-unassigned lift | `to_word`, `all_unassigned_form` | `test_s3_coverage.py` |
+| S4.1-S4.3 group 13-17 eligibility, terminal End, expansion into H core operations | `completion_plan`, `PracticalWord.expand` | `test_s4_practical.py` (Tables S1, S2 and selected S3 checks) |
+| S4.5 finite macros, argument admissibility, repeated Gly | `Macro`, `MacroCon`, `Arg` | `test_s4_practical.py` |
+| S5 deterministic `W(D)` relative to an explicit display enumeration | `ElectronAllocation.to_word(order=...)` | `test_s3_coverage.py` |
+| Non-normative RDKit projection; `n_empty` is not silently localized | `to_rdkit_mol`, `to_smiles` | `test_rdkit_projection.py` |
+
+## Reproducibility boundary
+
+- The intrinsic `Constitution` and `ElectronAllocation` objects do **not** contain nuclear indices or canonical numbering.
+- Repeatable token sequences are guaranteed for a *fixed explicit sequence of the same nucleus objects*, passed as `to_word(order=...)`; no guarantee is made for token identity with omitted `order`.
+- RDKit atom formal charges, bond types, and SMILES are downstream heuristics, not CCS identity fields. `_CCSAssignmentImbalance` preserves the SI-derived q-value independently; `_CCSAuxCharge` is an older compatibility property.
+- `formal_charge(nucleus)` remains a deprecated alias for `assignment_imbalance(nucleus)`, not a claim of chemical formal-charge equivalence.
+- The S5 **55 records / 84 forms** are **not yet installed as a complete machine-readable fixture corpus**. Existing S5-related tests check the word convention and selected cases only. Complete independent transcription, counts/electron audits, Replay, and provenance checks require a separate data-validation change before making a full-corpus reproducibility claim.
+- Passing executable regression tests supplies evidence for the specified cases; it is not a formal proof that all possible finite words or all physical systems have been exhaustively tested.
+
+## Running validation
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+CI: `.github/workflows/tests.yml` tests the S1-S4 core on Python 3.10, 3.11 and 3.12, and the complete suite with RDKit on Python 3.11. Compare the green workflow result to the pull-request HEAD commit; earlier successful runs must not be presented as proof of a newer HEAD.
