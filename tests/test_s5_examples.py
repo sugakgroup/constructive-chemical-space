@@ -56,11 +56,31 @@ def test_each_notebook_structure_and_manifest_matches_source(number):
     assert "example.constitution.show(" in "\n".join(source_cells)
     assert "form.show(" in "\n".join(source_cells)
     assert "export_example(" in "\n".join(source_cells)
+    # During the transition to executed notebooks, both clean source files
+    # and fully kernel-executed files are valid; never fabricate output.
+    provenance = obj["metadata"].get("ccs_execution")
+    display_count = 0
     for cell in obj["cells"]:
-        if cell["cell_type"] == "code":
+        if cell["cell_type"] != "code":
+            continue
+        compile("".join(cell["source"]), str(notebook_file), "exec")
+        if provenance is None:
             assert cell["execution_count"] is None
             assert cell["outputs"] == []
-            compile("".join(cell["source"]), str(notebook_file), "exec")
+            continue
+        assert isinstance(cell["execution_count"], int)
+        assert cell["execution_count"] > 0
+        for output in cell["outputs"]:
+            if output["output_type"] in {"display_data", "execute_result"}:
+                if "image/svg+xml" in output.get("data", {}):
+                    display_count += 1
+    if provenance is not None:
+        assert provenance["status"] == "completed"
+        assert provenance["method"] == "nbclient real ipykernel execution"
+        assert len(provenance["source_code_sha256"]) == 64
+        assert len(provenance["svg_outputs_sha256"]) == 64
+        assert display_count == provenance["actual_svg_outputs"]
+        assert display_count == 1 + entry["expected"]["forms"]
 
 
 @pytest.mark.parametrize("number", range(1, 56))
@@ -176,3 +196,25 @@ def test_every_s5_notebook_can_render_all_forms(number):
         ET.fromstring(svg)  # Well-formed SVG, not just a nonempty string.
         assert f"N_e = {example.constitution.num_electrons}" in svg
         assert "lossy view" not in svg
+
+
+def test_notebook_execution_report_when_available():
+    """Never accept an incomplete run report as evidence of execution."""
+    report_path = S5_ROOT / "execution_report.json"
+    if not report_path.exists():
+        return  # Notebooks have not yet been executed; no fake report.
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["schema"] == "ccs-s5-real-kernel-execution-1.0"
+    assert report["status"] == "completed"
+    assert report["notebook_count"] == 55
+    assert report["form_count"] == 84
+    assert report["actual_svg_count"] == 139
+    assert len(report["notebooks"]) == 55
+    assert [x["number"] for x in report["notebooks"]] == list(range(1, 56))
+    for entry in report["notebooks"]:
+        notebook = json.loads(
+            (S5_ROOT / "notebooks" / entry["notebook"]).read_text(encoding="utf-8")
+        )
+        assert notebook["metadata"]["ccs_execution"]["svg_outputs_sha256"] == entry["real_svg_sha256"]
+        assert notebook["metadata"]["ccs_execution"]["actual_svg_outputs"] == entry["real_svg_outputs"]
+        assert notebook["metadata"]["ccs_execution"]["actual_code_cell_execution_counts"] == entry["kernel_execution_counts"]
