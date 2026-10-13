@@ -2153,6 +2153,158 @@ def _ccs_cluster_fragment_positions(mol, graph, nodes):
     }
 
 
+def _ccs_place_metals_last(graph, fixed_positions, hubs, preferences):
+    """Place metal centers after fixed ligand fragments in empty 2D space.
+
+    Candidate positions are deterministic and scored by proximity to
+    ligand nuclei, overlap with ligand bonds, crossings of incidence lines,
+    and unnecessary metal-to-ligand distance. Coordinates are only a
+    downstream diagram: all original nuclear incidences are kept.
+    """
+    positions = dict(fixed_positions)
+    hubs = tuple(sorted(hubs))
+    if len(positions) + len(hubs) != graph.number_of_nodes():
+        raise ValueError("All non-metal nuclei must be placed before metals")
+    ligand_nodes = frozenset(fixed_positions)
+    ligand_edges = [
+        (a, b) for a, b in graph.edges()
+        if a in ligand_nodes and b in ligand_nodes
+    ]
+    baseline = tuple(fixed_positions.values())
+    min_y = min(y for _, y in baseline)
+    max_y = max(y for _, y in baseline)
+
+    def proper_cross(p, q, r, u):
+        def cross(a, b, c):
+            return ((b[0] - a[0]) * (c[1] - a[1])
+                    - (b[1] - a[1]) * (c[0] - a[0]))
+        return (
+            cross(p, q, r) * cross(p, q, u) < -1e-8
+            and cross(r, u, p) * cross(r, u, q) < -1e-8
+        )
+
+    for hub in hubs:
+        px, py = preferences[hub]
+        connected = [
+            v for v in graph.neighbors(hub) if v in fixed_positions
+        ]
+        possible_x = (px, px - 1.4, px + 1.4, px - 3.0, px + 3.0)
+        possible_y = (
+            py, max_y + 2.6, min_y - 2.6,
+            max_y + 4.0, min_y - 4.0, 0.0,
+        )
+        candidates = []
+        for y in possible_y:
+            for x in possible_x:
+                proposal = (x, y)
+                score = 0.3 * hypot(x - px, y - py)
+                # Keep the metal symbol clear of ligand nuclei and other
+                # metals, even in densely connected organometallic cages.
+                for other, (qx, qy) in positions.items():
+                    distance = hypot(x - qx, y - qy)
+                    clearance = 4.0 if other in hubs else 2.4
+                    if distance < clearance:
+                        score += 300.0 * (clearance - distance) ** 2
+                for a, b in ligand_edges:
+                    q, r = positions[a], positions[b]
+                    vx, vy = r[0] - q[0], r[1] - q[1]
+                    divisor = vx * vx + vy * vy
+                    if divisor < 1e-10:
+                        continue
+                    fraction = min(1.0, max(
+                        0.0, ((x - q[0]) * vx + (y - q[1]) * vy) / divisor
+                    ))
+                    sep = hypot(
+                        x - (q[0] + fraction * vx),
+                        y - (q[1] + fraction * vy),
+                    )
+                    if sep < 0.8:
+                        score += 100.0 * (0.8 - sep) ** 2
+                for neighbor in connected:
+                    target = positions[neighbor]
+                    score += 0.035 * hypot(
+                        x - target[0], y - target[1]
+                    )
+                    for a, b in ligand_edges:
+                        if neighbor in (a, b):
+                            continue
+                        if proper_cross(
+                            proposal, target, positions[a], positions[b]
+                        ):
+                            score += 9.0
+                candidates.append((score, x, y))
+        _, x, y = min(candidates)
+        positions[hub] = (x, y)
+    return positions
+
+
+def _ccs_fanout_cryptand_h(graph, symbols, heavy, positions):
+    """Place every explicit H separately around its attached heavy nucleus.
+
+    Hydrogen positions are determined *after* the three bridge heavy-atom
+    chains, with deterministic angular fanout and repulsion from all already
+    placed nuclei. This also avoids collisions across adjacent parents.
+    """
+    heavy = frozenset(heavy)
+    fixed = dict(positions)
+    cx = sum(fixed[v][0] for v in heavy) / len(heavy)
+    cy = sum(fixed[v][1] for v in heavy) / len(heavy)
+    for parent in sorted(heavy):
+        hydrogens = sorted(
+            h for h in graph.neighbors(parent) if symbols[h] == "H"
+        )
+        if not hydrogens:
+            continue
+        px, py = fixed[parent]
+        away_x = away_y = 0.0
+        for other in graph.neighbors(parent):
+            if other not in heavy:
+                continue
+            qx, qy = fixed[other]
+            length = max(1e-9, hypot(qx - px, qy - py))
+            away_x -= (qx - px) / length
+            away_y -= (qy - py) / length
+        if hypot(away_x, away_y) < 1e-5:
+            away_x, away_y = px - cx, py - cy
+        if hypot(away_x, away_y) < 1e-5:
+            away_x, away_y = 0.0, 1.0
+        from math import atan2
+        axis = atan2(away_y, away_x)
+        if len(hydrogens) == 1:
+            offsets = [0.0]
+        elif len(hydrogens) == 2:
+            offsets = [-0.6, 0.6]
+        else:
+            offsets = [0.0] + [
+                (-0.6 * ((k + 1) // 2) if k % 2 else
+                 0.6 * (k // 2))
+                for k in range(1, len(hydrogens))
+            ]
+        for h, base_offset in zip(hydrogens, offsets):
+            candidates = []
+            for angular_change in (
+                0.0, -0.35, 0.35, -0.7, 0.7, -1.05, 1.05, pi
+            ):
+                for distance in (1.48, 1.8, 2.15):
+                    angle = axis + base_offset + angular_change
+                    x = px + distance * cos(angle)
+                    y = py + distance * sin(angle)
+                    score = (
+                        2.0 * abs(angular_change)
+                        + 0.7 * abs(distance - 1.48)
+                    )
+                    for other, (ox, oy) in positions.items():
+                        if other == parent:
+                            continue
+                        separation = hypot(x - ox, y - oy)
+                        if separation < 1.15:
+                            score += 300.0 * (1.16 - separation) ** 2
+                    candidates.append((score, x, y))
+            _, x, y = min(candidates)
+            positions[h] = (x, y)
+    return positions
+
+
 def _ccs_cluster_positions(mol, graph):
     """Return a schematic, deliberately nonphysical coordination layout.
 
@@ -2214,48 +2366,30 @@ def _ccs_cluster_positions(mol, graph):
                         positions[v] = (x, y)
                         if v not in endpoints:
                             arm_numbers[v] = arm_i
-                for v in heavy:
-                    hs = sorted(
-                        j for j in graph.neighbors(v)
-                        if symbols[j] == "H"
-                    )
-                    if not hs:
-                        continue
-                    connected = [
-                        positions[k] for k in heavy_graph.neighbors(v)
-                        if k in positions
-                    ]
-                    x, y = positions[v]
-                    if len(connected) >= 2:
-                        dx = connected[-1][0] - connected[0][0]
-                        dy = connected[-1][1] - connected[0][1]
-                    elif connected:
-                        dx, dy = connected[0][0] - x, connected[0][1] - y
-                    else:
-                        dx, dy = 1.0, 0.0
-                    scale = max(1e-8, hypot(dx, dy))
-                    tx, ty = dx / scale, dy / scale
-                    nx_, ny_ = -ty, tx
-                    arm_i = arm_numbers.get(v, 1)
-                    side = (1, 0, -1)[arm_i]
-                    for h_i, h in enumerate(hs):
-                        if side:
-                            shift = 1.45 * side
-                            along = (-0.75 if h_i % 2 == 0 else 0.75)
-                        else:
-                            shift = 1.35 if h_i % 2 == 0 else -1.35
-                            along = 0.0
-                        positions[h] = (
-                            x + shift * nx_ + along * tx,
-                            y + shift * ny_ + along * ty,
-                        )
-                positions[hub] = (0.0, 8.5)
-                # Unconnected counterions remain independent positions.
+                # The scaffold is complete before attached H and metal.
+                positions = _ccs_fanout_cryptand_h(
+                    graph, symbols, heavy, positions
+                )
+                # Unconnected counterions remain distinct from the host.
                 for k, group in enumerate(components):
                     if group == scaffold:
                         continue
                     for j, v in enumerate(sorted(group)):
                         positions[v] = (-14.0 - 4.0 * k, 8.0 + j * 2.0)
+                neighbor_x = [
+                    positions[v][0] for v in graph.neighbors(hub)
+                    if v in positions
+                ]
+                preferred = (
+                    sum(neighbor_x) / len(neighbor_x)
+                    if neighbor_x else 0.0,
+                    max(y for _, y in positions.values()) + 2.8,
+                )
+                # A metal is inserted LAST, sufficiently outside the
+                # three explicitly drawn ligand bridges.
+                positions = _ccs_place_metals_last(
+                    graph, positions, (hub,), {hub: preferred}
+                )
                 if len(positions) == mol.GetNumAtoms():
                     return positions, "three-bridge-cryptand"
 
@@ -2281,19 +2415,6 @@ def _ccs_cluster_positions(mol, graph):
                 v: (x - mx + center, y - my)
                 for v, (x, y) in fragment.items()
             })
-        for hub in hubs:
-            neighbors = [
-                i for i, group in enumerate(large)
-                if any(graph.has_edge(hub, v) for v in group)
-            ]
-            if len(neighbors) >= 2:
-                coords[hub] = (
-                    sum(centers[i] for i in neighbors) / len(neighbors), 0.0
-                )
-            elif len(neighbors) == 1:
-                coords[hub] = (centers[neighbors[0]] + 0.55 * gap, 0.0)
-            else:
-                coords[hub] = (max(centers) + gap, 0.0)
         for k, group in enumerate(components):
             if group in large:
                 continue
@@ -2302,6 +2423,27 @@ def _ccs_cluster_positions(mol, graph):
             )
             for v, (x, y) in independent.items():
                 coords[v] = (min(centers) - gap - 5.0 * k + x, y)
+        # Only after EVERY ligand and hydrogen is placed, choose metal
+        # positions away from nuclei and connection strokes. For two metals
+        # stagger on opposite sides of the ligand sequence; this helps
+        # visually resolve the dense Lu2(Pc)3 and Cp sandwich incidences.
+        ys = [y for _, y in coords.values()]
+        top, bottom = max(ys), min(ys)
+        preferred = {}
+        for k, hub in enumerate(sorted(hubs)):
+            adjacent_fragments = [
+                i for i, group in enumerate(large)
+                if any(graph.has_edge(hub, v) for v in group)
+            ]
+            mx = (
+                sum(centers[i] for i in adjacent_fragments)
+                / len(adjacent_fragments)
+                if adjacent_fragments else max(centers) + gap
+            )
+            preferred[hub] = (
+                mx, top + 2.7 if k % 2 == 0 else bottom - 2.7
+            )
+        coords = _ccs_place_metals_last(graph, coords, hubs, preferred)
         if len(coords) == mol.GetNumAtoms():
             return coords, "separated-ligand-layers"
 
@@ -2342,10 +2484,6 @@ def _ccs_cluster_positions(mol, graph):
                 coords[v][1] for v in graph.neighbors(hub)
                 if v in coords
             ]
-            coords[hub] = (
-                max_x + 4.0,
-                sum(neighbors) / len(neighbors) if neighbors else 0.0
-            )
             for k, group in enumerate(components):
                 if group == scaffold:
                     continue
@@ -2354,6 +2492,15 @@ def _ccs_cluster_positions(mol, graph):
                 )
                 for v, (x, y) in other.items():
                     coords[v] = (min_x - 7.0 - 4.0 * k + x, y)
+            preferred = {
+                hub: (
+                    max_x + 4.0,
+                    sum(neighbors) / len(neighbors) if neighbors else 0.0,
+                )
+            }
+            coords = _ccs_place_metals_last(
+                graph, coords, (hub,), preferred
+            )
             if len(coords) == mol.GetNumAtoms():
                 return coords, "separated-metal-host"
     return None
@@ -2510,9 +2657,14 @@ def _ccs_nuclear_annotation_positions(drawer, mol, endpoint_annotations):
         cx, cy = centers[idx]
         for kind, glyph, count in items:
             candidates = []
-            # Prefer the outside of the existing bond fan, while considering
-            # the same locations already used for endpoint electron labels.
-            for radius in (22.0, 31.0, 43.0, 56.0):
+            # Residual electrons belong visually next to their nucleus,
+            # unlike a charge label which can be slightly farther away.
+            # Candidate positions avoid the bond fan and endpoint labels.
+            radii = (
+                (11.0, 15.0, 21.0, 29.0) if kind == "residual"
+                else (18.0, 26.0, 36.0, 48.0)
+            )
+            for radius in radii:
                 for angle_index in range(16):
                     theta = pi * angle_index / 8.0
                     x = cx + radius * cos(theta)
@@ -2522,14 +2674,19 @@ def _ccs_nuclear_annotation_positions(drawer, mol, endpoint_annotations):
                             and 12.0 < y < height - 12.0):
                         score += 1e6
                     for j, (ax, ay) in enumerate(centers):
-                        threshold = 20.0 if j != idx else 16.0
+                        threshold = (
+                            (15.0 if j != idx else 9.0)
+                            if kind == "residual"
+                            else (20.0 if j != idx else 16.0)
+                        )
                         gap = hypot(x - ax, y - ay)
                         if gap < threshold:
                             score += 80.0 * (threshold - gap + 1.0)
                     for a, b in segments:
                         distance = segment_distance(x, y, a, b)
-                        if distance < 11.0:
-                            score += 70.0 * (12.0 - distance)
+                        bond_clearance = 7.0 if kind == "residual" else 11.0
+                        if distance < bond_clearance:
+                            score += 70.0 * (bond_clearance + 1.0 - distance)
                     radius_text = 8.0 + len(glyph) * 3.5
                     for ox, oy, ore in occupied:
                         gap = hypot(x - ox, y - oy)

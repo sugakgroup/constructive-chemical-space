@@ -549,3 +549,91 @@ def test_cluster_layout_is_optional_and_does_not_change_ccs_identity():
         svg = d.to_svg(layout=layout)
         assert "<svg" in svg
     assert d.num_electrons == baseline
+
+
+
+@pytest.mark.parametrize(
+    ("number", "metals", "expected_style"),
+    [
+        (18, "Fe", "separated-ligand-layers"),
+        (19, "U", "separated-ligand-layers"),
+        (20, "Tb", "separated-ligand-layers"),
+        (21, "Lu", "separated-ligand-layers"),
+        (43, "K", "three-bridge-cryptand"),
+        (44, "Na", "three-bridge-cryptand"),
+    ],
+)
+def test_metals_are_placed_last_outside_ligand_atoms(
+    number, metals, expected_style
+):
+    from examples.s5._common import build_example
+    from constructive_chemical_space.ccs import _ccs_render_options
+    d = build_example(number).constitution
+    mol, footer, _, _, _ = _ccs_render_options(d, layout="cluster")
+    assert mol.GetProp("_CCSClusterLayoutKind") == expected_style
+    conf = mol.GetConformer()
+    positions = [
+        (conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y)
+        for i in range(mol.GetNumAtoms())
+    ]
+    selected = [
+        atom.GetIdx() for atom in mol.GetAtoms()
+        if atom.GetSymbol() == metals and atom.GetDegree() >= 6
+    ]
+    assert selected
+    for idx in selected:
+        x, y = positions[idx]
+        clearance = min(
+            hypot(x - positions[j][0], y - positions[j][1])
+            for j in range(len(positions)) if j != idx
+        )
+        assert clearance > 2.4
+    assert "Schematic cluster arrangement" in " ".join(footer)
+
+
+@pytest.mark.parametrize("number", [43, 44])
+def test_cryptand_explicit_h_positions_are_distinct(number):
+    from examples.s5._common import build_example
+    from constructive_chemical_space.ccs import _ccs_render_options
+    mol, _, _, _, _ = _ccs_render_options(
+        build_example(number).constitution, layout="cluster"
+    )
+    conf = mol.GetConformer()
+    positions = {
+        i: (conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y)
+        for i in range(mol.GetNumAtoms())
+    }
+    hydrogens = [
+        atom.GetIdx() for atom in mol.GetAtoms()
+        if atom.GetSymbol() == "H"
+    ]
+    for i, j in __import__("itertools").combinations(hydrogens, 2):
+        assert hypot(
+            positions[i][0] - positions[j][0],
+            positions[i][1] - positions[j][1],
+        ) > 0.8
+
+
+def test_residual_dots_remain_close_to_ligand_nuclei():
+    from rdkit.Chem.Draw import rdMolDraw2D
+    from constructive_chemical_space.ccs import (
+        _ccs_render_options, _ccs_endpoint_annotation_positions,
+        _ccs_nuclear_annotation_positions,
+    )
+    d = ElectronAllocation.from_indexed(
+        ["N", "H", "H", "H"], [7, 1, 1, 1],
+        [(0, 1, 1, 1), (0, 2, 1, 1), (0, 3, 1, 1)],
+    )
+    mol, _, body_height, _, _ = _ccs_render_options(d)
+    drawer = rdMolDraw2D.MolDraw2DSVG(1000, body_height)
+    drawer.DrawMolecule(mol)
+    endpoints = _ccs_endpoint_annotation_positions(drawer, mol)
+    dots = [
+        entry for entry in _ccs_nuclear_annotation_positions(
+            drawer, mol, endpoints
+        ) if entry[1] == "residual"
+    ]
+    assert len(dots) == 1
+    atom, _, _, _, x, y = dots[0]
+    center = drawer.GetDrawCoords(atom)
+    assert hypot(x - center.x, y - center.y) <= 29.1

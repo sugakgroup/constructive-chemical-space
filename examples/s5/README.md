@@ -197,3 +197,19 @@ including the 4 difficult coordination and cluster examples. The artifact
 is not merged into the notebooks, expires after five days, and is **not**
 claimed to replace the final 55-notebook execution and provenance report.
 The all-record notebook regeneration remains a manual final-review action.
+
+### Ligand-first / metal-last placement
+
+For metallocenes and multi-decker complexes the organic ring structures are
+laid out first. Metal atoms are then placed last using deterministic candidate
+positions outside the crowded ligand nuclei, scored for atom clearance,
+direct-connection interference and unnecessary distance. The metals remain
+fully connected: no Fe–C, Tb–N or Lu–N incidence is removed. This is a
+readability-driven schematic 2D convention, not a proposed 3D geometry.
+
+For cryptands, the three bridging chains and **all explicit H positions**
+are placed first. Two hydrogens on a parent atom are fanned out and checked
+against nearby atoms; K/Na is added last, away from the ligand. Central Ni
+inside Pb12 is deliberately retained as the exception where the metal is
+intrinsically the included graph hub. Residual electron dots are kept nearer
+their source atom than charge annotations.

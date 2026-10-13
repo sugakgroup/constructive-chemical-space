@@ -17,7 +17,7 @@ Date: 2026-10-13. Basis: *Defining Chemical Space Constructively*, Supporting In
 | S4.5 finite macros, argument admissibility, repeated Gly | `Macro`, `MacroCon`, `Arg` | `test_s4_practical.py` |
 | S5 deterministic `W(D)` relative to an explicit display enumeration | `ElectronAllocation.to_word(order=...)` | `test_s3_coverage.py` |
 | Non-normative RDKit projection; `n_empty` is not silently localized | `to_rdkit_mol`, `to_smiles` | `test_rdkit_projection.py` |
-| Optional S1/S5 visualization; full explicit-H graph, group-13–17 residual valence dots, atom-local q signs, and crossing-aware planar 2D layout | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
+| Optional S1/S5 visualization; full explicit-H graph, group-13–17 residual valence dots, atom-local q signs, and ligand-first metal-last schematic 2D layout | `show`, `to_svg`, `to_png`, `save` on intrinsic objects and words | `test_visualization.py` (RDKit+IPython+Pillow CI) |
 | S5 all 55 executed notebooks, 84 explicit W(D) words, full Form-specific D and M consistency, and 168 authentic SVG outputs | `examples/s5/data/manifest.json`, `examples/s5/data/s5_records.json.xz`, `ElectronAllocation.to_word(order=...)`, `Word.replay()` | `tests/test_s5_examples.py` |
 
 ## Reproducibility boundary
