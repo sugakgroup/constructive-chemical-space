@@ -49,6 +49,7 @@ jobs:
             tests/test_visualization.py::test_amine_nitrogen_displays_two_residual_valence_dots \
             tests/test_visualization.py::test_water_oxygen_displays_four_valence_residual_dots \
             tests/test_visualization.py::test_assignment_imbalance_signs_and_valence_dots \
+            tests/test_visualization.py::test_negative_charge_svg_uses_ascii_xml_reference_not_utf8_escape \
             tests/test_visualization.py::test_2d_planar_K4_preserves_chemical_ring_layout \
             tests/test_visualization.py::test_s5_ferrocene_cp_rings_are_pentagonal \
             tests/test_visualization.py::test_s5_perfluorocubane_square_faces_do_not_collapse \

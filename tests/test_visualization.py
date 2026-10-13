@@ -413,7 +413,7 @@ def test_negative_charge_svg_uses_ascii_xml_reference_not_utf8_escape(
     # viewers from exposing its three UTF-8 bytes as literal backslash codes.
     assert f"{'2' if expected_charge == -2 else ''}&#8722;</text>" in svg
     assert "−" not in svg
-    assert r"\\xe2\\x88\\x92" not in svg.lower()
+    assert r"\xe2\x88\x92" not in svg.lower()
 
     root = ET.fromstring(svg)
     charges = [
