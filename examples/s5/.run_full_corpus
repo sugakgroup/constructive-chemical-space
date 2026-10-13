@@ -1,6 +1,5 @@
-Full-corpus regeneration after fixing raw U+2212 SVG encoding, 2026-10-13.
-Use exact current CCS implementation HEAD de6cd9120b0ca7793503b71782a37e661731066a.
-Run 55 SI notebooks / 84 Forms / 168 genuine SVGs in Jupyter kernels.
-Ensure negative charge glyphs are represented in SVG source as &#8722;.
-Preserve all S1–S4 semantics and the previously validated S5 fixture.
-No merge; no Python-version matrix.
+Full-corpus real Jupyter regeneration, October 13 2026.
+Implementation HEAD: 0eb5f51ec4a2d596b0a09c7c63b6bda96eac0728.
+Render negative CCS assignment imbalance as SVG vector line strokes (no U+2212 glyph or &#8722; in SVG output).
+Regenerate all 55 Notebook execution counts and 168 genuine kernel SVG outputs, run full tests, commit the verified output to PR #4 only.
+Preserve all CCS construction/constitution/electron-allocation semantics, no merge or Python matrix.
