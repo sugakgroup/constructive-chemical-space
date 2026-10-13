@@ -117,12 +117,23 @@ bond annotations use `allocation_label_mode="bond"`; to suppress labels use
 `"none"`. `label_all_allocations=True` additionally shows endpoint
 counts on conventional single/double/triple/dative glyphs. Neither labels
 nor line styles enter CCS intrinsic identity.
-The S1.4 assignment imbalance is presented as `q_v`, never as a
-conventional RDKit/Lewis formal charge. The visualization input is immutable
+The S1.4 assignment imbalance `q_v=Z_v-n_v` is represented by a compact
+atom-local sign (`+`, `−`, `2−`, etc.) and retained as explicit CCS
+metadata, **not** as an RDKit/Lewis formal charge. Group-13–17 atoms additionally
+display the nonnegative valence residual count
+`n_v - Σ_s a_{v,s} - (Z_v-(group_v-10))` as `•` glyphs; this is a formal
+accounting count and does **not** claim a particular spin state or a physically
+unique lone-pair interpretation. H and nuclei outside that p-block range
+receive no residual valence dots by default. The visualization input is immutable
 and does not acquire any display indices; caller-provided `order` is used
 only for reproducible depiction. Word-based displays use replay order by
-default. SVG generation requires RDKit, PNG requires RDKit and Pillow,
-and `show()` additionally requires IPython.
+default. SVG generation requires RDKit and NetworkX for planarity testing; PNG also
+requires Pillow, and `show()` additionally requires IPython. The 2D layout
+prefers CoordGen for suitably connected rings, detects geometrical crossings
+and uses an explicit straight-line planar embedding if required. Planar CCS
+graphs must have no unrelated bond-line crossings. Mathematically nonplanar
+graphs cannot satisfy that condition and receive a visible disclaimer rather
+than pretending the crossings can be removed. No physical 3D model is inferred.
 
 ## Stable v1.0 top-level imports
 
