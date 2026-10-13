@@ -23,6 +23,14 @@ PDF page-header text can divide a single printed connection/allocation token. Su
 
 There are 1,793 nucleus entries and 2,014 connection entries over the 55 example records, and 2,900 explicit endpoint-allocation connection records summed over the 84 forms. Nonzero unassigned-electron counts occur in S5 records 43, 46, and 48. Unusual, asymmetric and zero endpoint allocations are preserved literally.
 
+### Source and fixture fingerprints
+
+- SI PDF SHA-256: `777f7746048a1859aef9c955a0346063082a3ff91384c319dfc90b765bfa31b5`
+- SI DOCX SHA-256: `00513db5f6d68fe456911460cbedbf185f77393d01e2642d081079a0c09cb89a`
+- Compressed fixture SHA-256: `1a9c1dcd119159aba4a95ff9941ea73110de18f97583200e33b3578df6aad8dd`
+
+The data blob was uploaded byte-for-byte (Git blob SHA-1 `f594259a60a87756d223ec0183704ea1f02925ec`). The `n_empty=1` cases are records 43, 46, and 48, including the electron-only form on SI PDF page 61.
+
 ## Machine-readable fixture
 
 File: `data/s5_records.json.xz`. It contains UTF-8 JSON compressed with the Python-standard-library xz/lzma format to keep the private repository small. Read it with:
@@ -44,7 +52,7 @@ print(len(corpus["records"]))  # 55
 
 ## CI
 
-`python -m pytest tests/test_s5_records.py` tests all 84 forms as CCS value objects, verifies exact S5 token order and replay, the electron-allocation quotient, Table S4 counts and charges, and representative intrinsic relabelings. This test uses only the existing CCS core and Python standard library (no RDKit or visualization dependency).
+`python -m pytest tests/test_s5_records.py` tests all 84 forms as CCS value objects, verifies exact S5 token order and replay, the electron-allocation quotient, Table S4 counts and charges, and representative intrinsic relabelings. This test uses only the existing CCS core and Python standard library (no RDKit or visualization dependency). For every form, the replay's temporary address table gives an explicit field-preserving bijection. Generic graph-isomorphism equality is additionally tested on smaller examples instead of repeatedly searching high-symmetry 100+-nucleus graphs; the full fieldwise replay checks establish intrinsic equality under S1 renaming.
 
 The original PDF and DOCX are not committed to the repository. The included hashes and source positions permit an external source audit; CI **does not** independently regenerate the fixture from those documents. Passing these tests establishes consistency and reproducible witnesses for the **specified** 84 forms, not physical chemical validity or exhaustive coverage of all finite CCS words.
 
