@@ -1,0 +1,1118 @@
+{
+  "schema": "ccs-s5-real-kernel-execution-1.0",
+  "status": "completed",
+  "generation_method": "nbclient NotebookClient.execute() with ipykernel",
+  "notebook_count": 55,
+  "form_count": 84,
+  "actual_svg_count": 139,
+  "python_version": "3.11.17",
+  "rdkit_version": "2026.09.1",
+  "nbclient_version": "0.11.0",
+  "started_utc": "2026-10-13T05:50:05.052957+00:00",
+  "completed_utc": "2026-10-13T05:50:54.676031+00:00",
+  "input_git_commit": "13ccf695e64552c98150a152282e6904f35ded2a",
+  "github_actions_run_id": "38353404270",
+  "source_fixture_sha256": "1a9c1dcd119159aba4a95ff9941ea73110de18f97583200e33b3578df6aad8dd",
+  "notebooks": [
+    {
+      "number": 1,
+      "name": "Molecular hydrogen, H2",
+      "notebook": "S5_01_H2.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "a981bd75d72cd28329fb4768d2230b78c188e1e44f981854156b511ee3d01f53",
+      "source_code_sha256": "640edc0b54a44059ef2c4d798a94b2d8c586b8b0e5a559078b55ded1904a9d58",
+      "notebook_bytes": 19792,
+      "runtime_seconds": 1.143,
+      "finished_utc": "2026-10-13T05:50:06.254278+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 2,
+      "name": "Water, H2O",
+      "notebook": "S5_02_H2O.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "85e3fa1cd418927d5efcc4a36400b716ada2bdeab279d091cb6a3f05e80800b4",
+      "source_code_sha256": "af475f503972473d267a56b4778c5cf4ab7ea221ef867133433e089eb076b697",
+      "notebook_bytes": 17905,
+      "runtime_seconds": 0.848,
+      "finished_utc": "2026-10-13T05:50:07.104472+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 3,
+      "name": "Ethane",
+      "notebook": "S5_03_Ethane.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "8b6659f7021eab2e3cf7d06ec8147a1e5c6e3036a69b8c4fe64839eb5163a169",
+      "source_code_sha256": "7551a8473e25465bf1fd6f5335a0f675c635b3a26e0465d75d0d78f1ab1f0b6c",
+      "notebook_bytes": 30719,
+      "runtime_seconds": 0.804,
+      "finished_utc": "2026-10-13T05:50:07.911442+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 4,
+      "name": "Ethene",
+      "notebook": "S5_04_Ethene.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "961912f5f27b8e96241061c090e6f52199a0204b1fd9708815f61ade039fe5ca",
+      "source_code_sha256": "4521750d07b027c9bd65d869b4b8ad82b2eb193d64cfeb02fa0bcfaafa66f680",
+      "notebook_bytes": 24987,
+      "runtime_seconds": 0.822,
+      "finished_utc": "2026-10-13T05:50:08.736016+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 5,
+      "name": "Acetylene",
+      "notebook": "S5_05_Acetylene.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "5dc8ddce0fe3fa0678b5965719050c302f42aa1f93264a658a59e02ba7c031bf",
+      "source_code_sha256": "6f995b2370ef5a94a8a8684ad29ea130eb6132e2ba1efbab46458282055499f8",
+      "notebook_bytes": 20360,
+      "runtime_seconds": 0.86,
+      "finished_utc": "2026-10-13T05:50:09.598422+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 6,
+      "name": "Formaldehyde",
+      "notebook": "S5_06_Formaldehyde.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "c40bd6dce2c6a16cc2010d0c4e41dd1c68ab6d42828e6866a68884850da938fd",
+      "source_code_sha256": "d53e6c9bdf4b316b2de0f4fe4f29f3c5acf0df5180dc65e007049fa61edf50b6",
+      "notebook_bytes": 21148,
+      "runtime_seconds": 0.853,
+      "finished_utc": "2026-10-13T05:50:10.454163+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 7,
+      "name": "Dimethyl ether",
+      "notebook": "S5_07_Dimethyl_Ether.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "5316579f4d61872ce9cca6ba533f5272e559b273853dbeb3da55b8bbc9e78362",
+      "source_code_sha256": "1853ecc03f4811496891869a0f44d0722bba46737b7e640d33d752431650023c",
+      "notebook_bytes": 35989,
+      "runtime_seconds": 0.856,
+      "finished_utc": "2026-10-13T05:50:11.313202+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 8,
+      "name": "Dinitrogen, N2",
+      "notebook": "S5_08_N2.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "daca89d8e4801ee73447c84ba24048a0b0d55f6cdd2a138a51b3193b92d12b5e",
+      "source_code_sha256": "e189e8aee1ecbed4df261f86c4e7f4d128f91630b8dbb6db91e284f102d0bd0d",
+      "notebook_bytes": 14393,
+      "runtime_seconds": 0.812,
+      "finished_utc": "2026-10-13T05:50:12.128074+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 9,
+      "name": "Benzene",
+      "notebook": "S5_09_Benzene.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "a32add3ffbcd3cb8e6c6d6358508c2410723555fd7886993fa8697e0a3d4416c",
+      "source_code_sha256": "df6bde9019e40fb7b5c1f33522b3cff79cb415024eda88b76121fd5204e9eeb4",
+      "notebook_bytes": 62524,
+      "runtime_seconds": 0.837,
+      "finished_utc": "2026-10-13T05:50:12.968029+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 10,
+      "name": "Phenol",
+      "notebook": "S5_10_Phenol.ipynb",
+      "form_count": 4,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 5,
+      "real_svg_sha256": "ecfbe3e5308c05e470390bb84cdcb67fa2eae3d1e48c2bc018bff139a2d6e1d9",
+      "source_code_sha256": "b259aaac31ac75cc1e118b076dc0d99ad045a2d63f3c1ade8fb5dfaa3dc52144",
+      "notebook_bytes": 133505,
+      "runtime_seconds": 0.853,
+      "finished_utc": "2026-10-13T05:50:13.825730+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 11,
+      "name": "Cyclo[18]carbon",
+      "notebook": "S5_11_Cyclo18carbon.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "fb6d9e49a3931a17becc140fec885c484966035f4cd867a6e4673e6a5bb09034",
+      "source_code_sha256": "4a54288786672df7e7b634e7a44faa08a31dc35de8b2dccd14cabc5de6018d81",
+      "notebook_bytes": 103177,
+      "runtime_seconds": 0.88,
+      "finished_utc": "2026-10-13T05:50:14.710448+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 12,
+      "name": "Azulene",
+      "notebook": "S5_12_Azulene.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "89b71ba8db56d74d1faccef429055bbad3e279e5b53a49c3ed5f1ec433c1a0a5",
+      "source_code_sha256": "114bdc99bc35870b854bb95904f8bfe259698322cdb163a8d8bda33dbcb102e0",
+      "notebook_bytes": 93865,
+      "runtime_seconds": 0.838,
+      "finished_utc": "2026-10-13T05:50:15.552704+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 13,
+      "name": "Bis-periazulene (unsubstituted parent framework)",
+      "notebook": "S5_13_Bis_periazulene.ipynb",
+      "form_count": 3,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 4,
+      "real_svg_sha256": "5bff92a10656be44ae4ca8baed6b93a10ce6ff653ef53699b6629eb62825022e",
+      "source_code_sha256": "349ad3b8334664c241395de941cd4d78783096c98a48ea1ad8d3530c9696772a",
+      "notebook_bytes": 188048,
+      "runtime_seconds": 0.888,
+      "finished_utc": "2026-10-13T05:50:16.445359+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 14,
+      "name": "Ammonia-borane",
+      "notebook": "S5_14_Ammonia_Borane.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "367da10e4688b0eaf80b7d68fcffe4e8ca86df99ac52ae65c5897497c6e7a215",
+      "source_code_sha256": "0808338dbc4e841f650702efae8c6af06d56e40340fbf0078567d884d46ded1a",
+      "notebook_bytes": 51182,
+      "runtime_seconds": 0.855,
+      "finished_utc": "2026-10-13T05:50:17.304989+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 15,
+      "name": "1,3-Dimethylimidazol-2-ylidene",
+      "notebook": "S5_15_NHC.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "a236e4eb44adadb384eda74bffd21121f60459801824bda3afd172c8a1682306",
+      "source_code_sha256": "9da76a258ac326f23dd9232e95ab44afcef95dbafa149b0f0cc60b43c37e22b4",
+      "notebook_bytes": 86250,
+      "runtime_seconds": 0.827,
+      "finished_utc": "2026-10-13T05:50:18.135712+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 16,
+      "name": "Hexaphenylcarbodiphosphorane, C(PPh3)2",
+      "notebook": "S5_16_Carbodiphosphorane.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "033a381af92a29882f1b73aa54c3769c9db51169d26caf649b574c07bc993b8d",
+      "source_code_sha256": "a421523a41bae48d2a8f2267d382066eae854149b2b2975f8785309fe3afc32f",
+      "notebook_bytes": 430866,
+      "runtime_seconds": 1.023,
+      "finished_utc": "2026-10-13T05:50:19.166461+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 17,
+      "name": "Bifluoride, [F–H–F]–",
+      "notebook": "S5_17_Bifluoride.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "17112b25e55eb3fa82fdfc63e6b93c41a24225c151f10f7d935bd9c415181746",
+      "source_code_sha256": "bf2564b362498c20e81a20be336eeed4ecbe0ad93b735b299180f88acbab5ab6",
+      "notebook_bytes": 25622,
+      "runtime_seconds": 0.791,
+      "finished_utc": "2026-10-13T05:50:19.963009+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 18,
+      "name": "Ferrocene",
+      "notebook": "S5_18_Ferrocene.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "05b90c01866848fa8bcaf619168d8da4f7de5fab3e485538d704d2992075fc81",
+      "source_code_sha256": "dc3b3f4308ffd1f9e5b2950003858829985fff28ba1d933a8f50f8198d37bb06",
+      "notebook_bytes": 172116,
+      "runtime_seconds": 0.919,
+      "finished_utc": "2026-10-13T05:50:20.886284+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 19,
+      "name": "Uranocene, U(COT)2",
+      "notebook": "S5_19_Uranocene.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "7ed7d8be4e0b935bad101476b43cf0eddd6e29a0393efec479b03eb72df414bd",
+      "source_code_sha256": "2d495d83704f6be6252815e27e4d8293b7ef1de694ce198d5b3291f50cf65cf0",
+      "notebook_bytes": 276528,
+      "runtime_seconds": 0.915,
+      "finished_utc": "2026-10-13T05:50:21.808075+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 20,
+      "name": "Neutral Tb(Pc)2 double-decker complex",
+      "notebook": "S5_20_TbPc2.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "5734c8319e804c3fcdfe5e3eff3b5d0cd28db000c6bf0914aa99f430143f4679",
+      "source_code_sha256": "31d56572681679b254b958b02fb9d2ecacd55e97b747f710b76d917064ebfe87",
+      "notebook_bytes": 498673,
+      "runtime_seconds": 1.088,
+      "finished_utc": "2026-10-13T05:50:22.906075+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 21,
+      "name": "Lu2(Pc)3 triple-decker complex",
+      "notebook": "S5_21_Lu2Pc3.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "a7f6f8e30842f6ad2c3bcb8a2b49631b4a2629ee6c91d247def16a74e99e4a96",
+      "source_code_sha256": "e8371ec3a006b1585f59c6bc0093fbb8515c40d08c0fd68bd97337f2581a8b4c",
+      "notebook_bytes": 810118,
+      "runtime_seconds": 1.4,
+      "finished_utc": "2026-10-13T05:50:24.321011+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 22,
+      "name": "Nitroprusside, [Fe(CN)5(NO)]2−",
+      "notebook": "S5_22_Nitroprusside.ipynb",
+      "form_count": 3,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 4,
+      "real_svg_sha256": "121751e919972a617ed20a53ea1e64253b95a6a2234da43d1fd404db9708f800",
+      "source_code_sha256": "93d56c96c3bfa673192928ead1ea1ec801d253f0f13fe753c481b3fde5ec5db7",
+      "notebook_bytes": 151569,
+      "runtime_seconds": 0.835,
+      "finished_utc": "2026-10-13T05:50:25.166375+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 23,
+      "name": "[Co(Me2tpa)(dbdiox)]+",
+      "notebook": "S5_23_Co_dbdiox.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "ccd9052031a53d834881b2534e0b5c2a1a05ee49a4cc642994e6481ace1c3a12",
+      "source_code_sha256": "b0b2e07ddebf70708272a5cd126820c42bfb5dd458e5c3911d3a795d52bda1bf",
+      "notebook_bytes": 532403,
+      "runtime_seconds": 1.089,
+      "finished_utc": "2026-10-13T05:50:26.265331+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 24,
+      "name": "(iPrPDI)Fe(N2)",
+      "notebook": "S5_24_Fe_PDI_N2.ipynb",
+      "form_count": 3,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 4,
+      "real_svg_sha256": "9c90eb87d6b1a44992ccea08b071cc3007037c2aac02f0f69a1111f2a121b88e",
+      "source_code_sha256": "f0d1c4d9ff7d18696a8d531917dc7a9ffcdf92a5e2f7ad16c932abffefa4a0f5",
+      "notebook_bytes": 682403,
+      "runtime_seconds": 1.113,
+      "finished_utc": "2026-10-13T05:50:27.400236+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 25,
+      "name": "Anion of Zeise’s salt, [PtCl3(C2H4)]–",
+      "notebook": "S5_25_Zeises_Salt.ipynb",
+      "form_count": 3,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 4,
+      "real_svg_sha256": "f601a8eca6307a9b356c40fa59be61153173f01d3173ecf8d18b78e3a53760a7",
+      "source_code_sha256": "87529e1862ab7f70ed6374531dd83837662190f24cfa7c1bd1428f4687cef32e",
+      "notebook_bytes": 108853,
+      "runtime_seconds": 0.826,
+      "finished_utc": "2026-10-13T05:50:28.235189+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 26,
+      "name": "Co4(CO)12",
+      "notebook": "S5_26_Co4CO12.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "edbd95780494418301c5794b9d953ee5a8c3aa721800662f712c536bb75b6e4a",
+      "source_code_sha256": "00828b6f1cd27509c6dc1d042cdf518b5f011e337341c4de915b913f9ecfb1cc",
+      "notebook_bytes": 299411,
+      "runtime_seconds": 0.865,
+      "finished_utc": "2026-10-13T05:50:29.106757+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 27,
+      "name": "First-generation Grubbs catalyst",
+      "notebook": "S5_27_Grubbs1.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "b93ae4c83d3e6eddbfb748216d80d77603dec3619d9496e7cc4e07ef8485b74a",
+      "source_code_sha256": "64cf063170a1ef608529c9d844be008c49ddff0b7aa87169a57d509d274a7bcb",
+      "notebook_bytes": 518234,
+      "runtime_seconds": 1.049,
+      "finished_utc": "2026-10-13T05:50:30.165831+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 28,
+      "name": "[HCr2(CO)10]–",
+      "notebook": "S5_28_HCr2CO10.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "08c855facf5ee2ce3dc0e472d1dfe4e0eaa5a4a0280c27942daa49d11b17c274",
+      "source_code_sha256": "c413b00043e47673f36bc5ea2c4263ada30ff00aa10eb8b3d410db03fe90b73f",
+      "notebook_bytes": 233218,
+      "runtime_seconds": 0.885,
+      "finished_utc": "2026-10-13T05:50:31.060021+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 29,
+      "name": "[Re2Cl8]2–",
+      "notebook": "S5_29_Re2Cl8.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "bb94b6dc7ed6a2807bd531cc34b35a4faad74ae317fab1d3cc007ba5236bae9d",
+      "source_code_sha256": "bf34cf4c675a6a0662acd2be222dc86cc30ef50217f47e4e739afd7965f7177a",
+      "notebook_bytes": 69214,
+      "runtime_seconds": 0.889,
+      "finished_utc": "2026-10-13T05:50:31.953750+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 30,
+      "name": "Ar'CrCrAr': Power-type fivefold Cr–Cr bonded complex",
+      "notebook": "S5_30_CrCr_Quintuple.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "0b077d31b66fb8b955a1623b766ca2239bbe05e510908123666ce714c23bb315",
+      "source_code_sha256": "0f48d68d8ed3abc315d5b154aa7fcd4683d5324eae377dd550fdb08940eeef4d",
+      "notebook_bytes": 593237,
+      "runtime_seconds": 1.107,
+      "finished_utc": "2026-10-13T05:50:33.070240+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 31,
+      "name": "[Ru2(OAc)4(H2O)2]+: mixed-valent Ru2 paddlewheel complex",
+      "notebook": "S5_31_Ru2_Paddlewheel.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "662df20b365362507d71d649cbed69cc50fd2d039d44a27240a2892d223cf664",
+      "source_code_sha256": "430cfcfc35a20058c2cd2f6006818e869e2f54aa19a0f21598a5bd6ddc6e4b1b",
+      "notebook_bytes": 177740,
+      "runtime_seconds": 0.832,
+      "finished_utc": "2026-10-13T05:50:33.911439+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 32,
+      "name": "Co–U–Co methyl-truncated model",
+      "notebook": "S5_32_Co_U_Co.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "c71152017503ee085fabf47ab01f6c475ddd1218ab649549d4d081842c490dfc",
+      "source_code_sha256": "803600262aa68900796813874cc1faa8bd60ab9d6f9059f1de93b5d6ff4e2edf",
+      "notebook_bytes": 411812,
+      "runtime_seconds": 0.938,
+      "finished_utc": "2026-10-13T05:50:34.857151+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 33,
+      "name": "Uranyl, UO22+",
+      "notebook": "S5_33_Uranyl.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "14fa6ce58819fe3dee634a7203378b007e17ffc395829834636c81494e880e82",
+      "source_code_sha256": "162fc89dca5a1a89da74995e7f9a3e9a0118c9ec459108a9c4563c17f0aa4fd0",
+      "notebook_bytes": 40327,
+      "runtime_seconds": 0.786,
+      "finished_utc": "2026-10-13T05:50:35.649255+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 34,
+      "name": "H2+",
+      "notebook": "S5_34_H2_Plus.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "bbc2fb322f09d8cd118640944af6cd3e751251b2aa93a4858c4fea0b8ca45887",
+      "source_code_sha256": "84618f7e388ed2a76e8299741851b2d70900992733a179a593090a11e8c80db3",
+      "notebook_bytes": 17069,
+      "runtime_seconds": 0.856,
+      "finished_utc": "2026-10-13T05:50:36.508756+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 35,
+      "name": "Triangle H3+ molecule",
+      "notebook": "S5_35_H3_Plus.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "5f70f541cd53a21d2ab63561a13499784858caa997e63031bf03fdcb3bc5a35d",
+      "source_code_sha256": "02eec8339acca8d2eae058c17c2fa3d722b5c3affb5c403b63315d5a4881cb42",
+      "notebook_bytes": 23537,
+      "runtime_seconds": 0.855,
+      "finished_utc": "2026-10-13T05:50:37.366007+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 36,
+      "name": "Carbon–carbon one-electron σ-bond",
+      "notebook": "S5_36_CC_OneElectron.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "f9ecbc9bf1fb92e4fc9152a6e0bed67a0f07ba4a8f06050d01545efbe1cce294",
+      "source_code_sha256": "991340543c0577bc7073e10e5add182382b48ecd2c5a29c226fdd8a039ad2a6b",
+      "notebook_bytes": 417921,
+      "runtime_seconds": 0.943,
+      "finished_utc": "2026-10-13T05:50:38.315922+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 37,
+      "name": "1,8-Bis(phenylselenyl)naphthalene radical cation",
+      "notebook": "S5_37_Bis_Phenylselenyl_Naphthalene.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "9cc35a4351e750f108ce6600cc9239cce40b4fec865e358d3363963b71d35c01",
+      "source_code_sha256": "2ff92c4741b5555e3f5863ff87af4f9d99957f58aee0b83638d07c35e226e247",
+      "notebook_bytes": 249870,
+      "runtime_seconds": 0.87,
+      "finished_utc": "2026-10-13T05:50:39.193834+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 38,
+      "name": "[(Me2S)2]•+",
+      "notebook": "S5_38_Dimethylsulfide_Dimer_Cation.ipynb",
+      "form_count": 2,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 3,
+      "real_svg_sha256": "2967378d44fd39fa41ea9e185022ccd04a9a314657ab5ac38dc5aece150f74a0",
+      "source_code_sha256": "9079de516ca0655fcfb1842a3a537878cf3085e9b05c6d9d573065bc7117a6da",
+      "notebook_bytes": 105827,
+      "runtime_seconds": 0.806,
+      "finished_utc": "2026-10-13T05:50:40.005204+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 39,
+      "name": "closo-[B12H12]2–",
+      "notebook": "S5_39_B12H12_Closo.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "61265d78436f2985d81ebf4d24fc0b3c7de606c0248791b529876a9b814374cb",
+      "source_code_sha256": "52c2b9783bcfc58f1686fa16d4beb0a44741b98f7551c36901cf2338a81fa982",
+      "notebook_bytes": 188971,
+      "runtime_seconds": 0.826,
+      "finished_utc": "2026-10-13T05:50:40.836282+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 40,
+      "name": "ortho-C2B10H12",
+      "notebook": "S5_40_C2B10H12_Ortho.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "8f44a6ebac628614019981217787f047c04e432ae676c1c32187c358d946e39d",
+      "source_code_sha256": "08ac2748ae6a9bf9c3d3a2b7ffcbc5831e67182ac1ed0b11ecc5b80aa7e25f74",
+      "notebook_bytes": 184006,
+      "runtime_seconds": 0.87,
+      "finished_utc": "2026-10-13T05:50:41.712220+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 41,
+      "name": "[Fe4S4(SMe)4]2–",
+      "notebook": "S5_41_Fe4S4.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "a9cf834d9f0a127fa2e645882870abc16b2250a595a53ca583d55d5b2a82cf49",
+      "source_code_sha256": "68569b8ef59bd02d6fd4542aac83178977c9c7db7011147087ec8592b57da563",
+      "notebook_bytes": 152913,
+      "runtime_seconds": 0.847,
+      "finished_utc": "2026-10-13T05:50:42.564705+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 42,
+      "name": "[Ni@Pb12]2–",
+      "notebook": "S5_42_Ni_at_Pb12.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "95b1650fe4b190362d1918ce3818edbadaf4a53a7c3b9f823ba9a78d4d1dc26b",
+      "source_code_sha256": "e288ed7c9dfb32c55249ee7865f067eb51c78ec248a9823a53dff619d2112cae",
+      "notebook_bytes": 195304,
+      "runtime_seconds": 0.912,
+      "finished_utc": "2026-10-13T05:50:43.482518+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 43,
+      "name": "[K(2,2,2-crypt)]+e–",
+      "notebook": "S5_43_K_Cryptand_Electron.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "c4569d90544dc41b937b1173effe1b77b2eb8f8c6f63434ff70cd5b1df58115f",
+      "source_code_sha256": "eb41217b379a24dc4d591c40c90e79dd666ff562ed6d4c6512ba825eeb863856",
+      "notebook_bytes": 299943,
+      "runtime_seconds": 0.919,
+      "finished_utc": "2026-10-13T05:50:44.408346+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 44,
+      "name": "[Na(2,2,2-crypt)]+Na–",
+      "notebook": "S5_44_Na_Cryptand_Na_Anion.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "8e02736cef2b424c1a516ac2390adb5f3dd9af8cf4654a6f6cee17bc6e3edbaf",
+      "source_code_sha256": "91a9f8ce9f64f635213ba3de39869737d90fe1761b0412067831619f4327843c",
+      "notebook_bytes": 308983,
+      "runtime_seconds": 0.94,
+      "finished_utc": "2026-10-13T05:50:45.356924+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 45,
+      "name": "Disconnected Na/Cl",
+      "notebook": "S5_45_NaCl_Disconnected.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "31a90ec586e88eb687155e828317154b29204d6dbe99c3e8f15c860e68338101",
+      "source_code_sha256": "d29b443cb2f30e9bf54bda1d2199b634ca3681a90ba360475f5bfb0d35e610ae",
+      "notebook_bytes": 18196,
+      "runtime_seconds": 0.779,
+      "finished_utc": "2026-10-13T05:50:46.140279+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 46,
+      "name": "Electron",
+      "notebook": "S5_46_Electron.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "0d08d432807387c2aa7bf022ec5789ac0f6432193380ea187889476a1ed61d1f",
+      "source_code_sha256": "72170106ee44a0684dcec74484db3caedd4b4dd344f73854b1ac91a302107823",
+      "notebook_bytes": 8726,
+      "runtime_seconds": 0.839,
+      "finished_utc": "2026-10-13T05:50:46.981845+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 47,
+      "name": "Perfluorocubane",
+      "notebook": "S5_47_Perfluorocubane.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "fcdc30e68e5a8754520f88f1ffa67f8b14f974cb6fdc62b7c73dd0de525ac466",
+      "source_code_sha256": "f7b1310eb692d56c0e07af2e55f2f02b3d0123a00cc5823f36b5b0021225e309",
+      "notebook_bytes": 61198,
+      "runtime_seconds": 0.843,
+      "finished_utc": "2026-10-13T05:50:47.828139+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 48,
+      "name": "Perfluorocubane anion",
+      "notebook": "S5_48_Perfluorocubane_Anion.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "bdb3ab7b885c5b4a9900bbd3bff3cbd499dae379ca81b8e70b0c04a9f7fdd39e",
+      "source_code_sha256": "50d6108b2c4b08b7a81c3c11302a7c38e29e0c183ca19448858003d1ec45cd61",
+      "notebook_bytes": 61332,
+      "runtime_seconds": 0.863,
+      "finished_utc": "2026-10-13T05:50:48.694472+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 49,
+      "name": "2-Hydroxypyridine",
+      "notebook": "S5_49_2_Hydroxypyridine.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "ebdc96ba341a421383a2498d76aa78f97520706cbc288676339b98725ddf799f",
+      "source_code_sha256": "6776366cf11e3177cc295c0b110893e206964bcb3da6539fa72ce72db5543cc5",
+      "notebook_bytes": 47034,
+      "runtime_seconds": 0.807,
+      "finished_utc": "2026-10-13T05:50:49.504992+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 50,
+      "name": "2-Pyridone",
+      "notebook": "S5_50_2_Pyridone.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "e5534d75f99b7f6dfe45e61e3e49e4f2c0cf44bd5b804aa9d17b0d8dca98f39f",
+      "source_code_sha256": "15d40cf6f5990b7f5357c8d5c013448f4fd8092a023d78679560c74b67308267",
+      "notebook_bytes": 47166,
+      "runtime_seconds": 0.806,
+      "finished_utc": "2026-10-13T05:50:50.314647+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 51,
+      "name": "[Co(NH3)5(NO2)]2+, N-bound",
+      "notebook": "S5_51_Co_Nitro_N_Bound.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "c3b5d813be280543134b86843f50868299f366afe9063391c59db27ba7544ba0",
+      "source_code_sha256": "59c62a9b59d322547923c99c0d84a3e73551983f563e54acc28736a33d8cebe4",
+      "notebook_bytes": 110340,
+      "runtime_seconds": 0.83,
+      "finished_utc": "2026-10-13T05:50:51.148701+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 52,
+      "name": "[Co(NH3)5(NO2)]2+, O-bound",
+      "notebook": "S5_52_Co_Nitrito_O_Bound.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "95dfed9c2bd26877f30fca801c365fc3bb58fc5b721d2237e6f2c13e6b6c0479",
+      "source_code_sha256": "02c5d8d116a998e4defe9d3bf878d63c81306c14057712745afa9f064c45fabb",
+      "notebook_bytes": 110720,
+      "runtime_seconds": 0.861,
+      "finished_utc": "2026-10-13T05:50:52.014013+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 53,
+      "name": "cis/trans-[Pt(NH3)2Cl2]",
+      "notebook": "S5_53_Pt_Cis_Trans.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "294c71f3e2f0dbc68fa2636fdbf2ddf9e44cf909d1b1d8d84216a5bef02ee328",
+      "source_code_sha256": "90a3888f98122aa6cc01f530557b4f06b4b2d1fb151d730496978c78dc354584",
+      "notebook_bytes": 54945,
+      "runtime_seconds": 0.788,
+      "finished_utc": "2026-10-13T05:50:52.805521+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 54,
+      "name": "Δ/Λ-[Ru(bpy)3]2+",
+      "notebook": "S5_54_Ru_bpy3_Delta_Lambda.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "fbdb43677956e218072709027a212c65dd31155e72da9d7631e26db8aac2aefe",
+      "source_code_sha256": "9a5cca15eac30b337caa8989651e98c61a39e4128e1779484a9d124a5d0e9844",
+      "notebook_bytes": 262673,
+      "runtime_seconds": 0.86,
+      "finished_utc": "2026-10-13T05:50:53.671160+00:00",
+      "result": "passed"
+    },
+    {
+      "number": 55,
+      "name": "[2]Catenane and two unlinked macrocycles",
+      "notebook": "S5_55_Catenane.ipynb",
+      "form_count": 1,
+      "code_cell_count": 4,
+      "kernel_execution_counts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "real_svg_outputs": 2,
+      "real_svg_sha256": "b3c6ca77f92c254436fb74b359e51dc43e19d60545065c71947b11b8f2fc492d",
+      "source_code_sha256": "37b7ba930af33634c9916c1d1a1d6f4c38ae1e6cbd11cfda2c37b8cebcda9edc",
+      "notebook_bytes": 446334,
+      "runtime_seconds": 0.991,
+      "finished_utc": "2026-10-13T05:50:54.671493+00:00",
+      "result": "passed"
+    }
+  ]
+}
