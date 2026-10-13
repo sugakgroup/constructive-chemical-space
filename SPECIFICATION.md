@@ -107,8 +107,16 @@ figure warns that H was omitted. In constitution view a stroke represents an
 S1 direct connection only, without implying bond multiplicity.
 
 In allocation view, standard graphical strokes are used only as a
-non-normative aid for selected endpoint allocations. Otherwise each displayed
-allocation is annotated using both endpoint indices and individual counts.
+non-normative aid for selected endpoint allocations. Nonstandard endpoint
+electron counts are positioned separately next to their contributing nuclei,
+using the coordinates of the actual drawn connection endpoints
+(`allocation_label_mode="endpoint"`, the default). SVG retains explicit
+`data-atom` and `data-electrons` metadata for each individual label,
+and PNG uses the same endpoint mapping. For backward-compatible central
+bond annotations use `allocation_label_mode="bond"`; to suppress labels use
+`"none"`. `label_all_allocations=True` additionally shows endpoint
+counts on conventional single/double/triple/dative glyphs. Neither labels
+nor line styles enter CCS intrinsic identity.
 The S1.4 assignment imbalance is presented as `q_v`, never as a
 conventional RDKit/Lewis formal charge. The visualization input is immutable
 and does not acquire any display indices; caller-provided `order` is used
