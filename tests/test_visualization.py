@@ -309,3 +309,133 @@ def test_conventional_allocation_labels_are_optional():
             if item.attrib.get("class") == "ccs-endpoint-allocation"
         ]
         assert len(labels) == expected
+
+
+def _nuclear_svg_labels(obj, **kwargs):
+    svg = obj.to_svg(**kwargs)
+    labels = [
+        {
+            "atom": int(item.attrib["data-atom"]),
+            "kind": item.attrib["data-kind"],
+            "count": int(item.attrib["data-count"]),
+            "glyph": "".join(item.itertext()),
+        }
+        for item in ET.fromstring(svg).iter()
+        if item.attrib.get("class") == "ccs-nuclear-annotation"
+    ]
+    return svg, labels
+
+
+def test_amine_nitrogen_displays_two_residual_valence_dots():
+    # Neutral NH3: N retains 7-3-2=2 valence residual electrons.
+    d = ElectronAllocation.from_indexed(
+        ["N", "H", "H", "H"], [7, 1, 1, 1],
+        [(0, 1, 1, 1), (0, 2, 1, 1), (0, 3, 1, 1)],
+    )
+    svg, labels = _nuclear_svg_labels(d, show_indices=False)
+    residual = [i for i in labels if i["kind"] == "residual"]
+    assert residual == [{"atom": 0, "kind": "residual",
+                         "count": 2, "glyph": "••"}]
+    assert not any(i["kind"] == "charge" for i in labels)
+    assert "n=7" not in svg
+    assert "class='ccs-nuclear-annotation'" in svg
+    assert "H omitted" not in svg
+
+
+def test_water_oxygen_displays_four_valence_residual_dots():
+    d = ElectronAllocation.from_indexed(
+        ["O", "H", "H"], [8, 1, 1],
+        [(0, 1, 1, 1), (0, 2, 1, 1)],
+    )
+    _, labels = _nuclear_svg_labels(d)
+    oxygen_dots = [v for v in labels if v["kind"] == "residual"
+                   and v["atom"] == 0]
+    assert len(oxygen_dots) == 2
+    assert sum(x["count"] for x in oxygen_dots) == 4
+    assert all(x["glyph"] == "••" for x in oxygen_dots)
+
+
+@pytest.mark.parametrize(
+    ("identities", "assigned", "edges", "expected_q", "expected_dots"),
+    [
+        (["N", "H", "H", "H", "H"], [6, 1, 1, 1, 1],
+         [(0, 1, 1, 1), (0, 2, 1, 1), (0, 3, 1, 1), (0, 4, 1, 1)], "+", 0),
+        (["O", "H"], [9, 1], [(0, 1, 1, 1)], "−", 6),
+        (["O"], [10], [], "2−", 8),
+    ],
+)
+def test_assignment_imbalance_signs_and_valence_dots(
+    identities, assigned, edges, expected_q, expected_dots
+):
+    d = ElectronAllocation.from_indexed(identities, assigned, edges)
+    _, labels = _nuclear_svg_labels(d)
+    charge = [i for i in labels if i["kind"] == "charge" and i["atom"] == 0]
+    assert len(charge) == 1
+    assert charge[0]["glyph"] == expected_q
+    remaining = [i for i in labels if i["kind"] == "residual"
+                 and i["atom"] == 0]
+    assert sum(i["count"] for i in remaining) == expected_dots
+    for i in d.nuclei:
+        assert d.assignment_imbalance(i) == i.identity.atomic_number - d.assigned_electrons(i)
+
+
+def test_non_p_block_and_hydrogen_have_no_valence_dot_depicton():
+    d = ElectronAllocation.from_indexed(
+        ["He", "H", "Fe"], [2, 1, 26], []
+    )
+    _, labels = _nuclear_svg_labels(d)
+    assert not [a for a in labels if a["kind"] == "residual"]
+
+
+def test_core_subtraction_is_not_silently_clamped_to_a_physical_electron():
+    d = ElectronAllocation.from_indexed(["C"], [0], [])
+    mol = _mol(d)
+    assert mol.GetAtomWithIdx(0).GetIntProp("_CCSResidualValenceElectrons") == -2
+    _, labels = _nuclear_svg_labels(d)
+    assert labels == []  # No fabricated dot for an inadmissible valence remainder.
+
+
+def test_2d_planar_K4_has_zero_straight_line_crossings():
+    # K4 is planar but many conventional molecule sketchers draw it crossing.
+    from constructive_chemical_space.ccs import _ccs_render_options
+    m = Constitution.from_indexed(
+        ["C"] * 4,
+        [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        24,
+    )
+    mol, _, _, _, _ = _ccs_render_options(m, layout="auto")
+    assert mol.GetBoolProp("_CCSPlanarGraph")
+    assert mol.GetIntProp("_CCS2DCrossings") == 0
+    assert "crossings unavoidable" not in m.to_svg()
+
+
+def test_nonplanar_K5_is_detected_and_accurately_warned():
+    from itertools import combinations
+    from constructive_chemical_space.ccs import _ccs_render_options
+    m = Constitution.from_indexed(
+        ["C"] * 5,
+        list(combinations(range(5), 2)),
+        30,
+    )
+    mol, footer, _, _, _ = _ccs_render_options(m)
+    assert not mol.GetBoolProp("_CCSPlanarGraph")
+    assert mol.GetBoolProp("_CCSNonPlanar2D")
+    assert any("crossings unavoidable" in line for line in footer)
+    assert "Non-planar graph" in m.to_svg()
+    with pytest.raises(ValueError):
+        m.to_svg(layout="unknown")
+
+
+def test_planarity_preserves_ccs_constitution_and_allocation_identity():
+    # Drawing never changes S1 identities, irrespective of layout selection.
+    d = ElectronAllocation.from_indexed(
+        ["C", "C", "H", "H"], [6, 6, 1, 1],
+        [(0, 1, 2, 2), (0, 2, 1, 1), (1, 3, 1, 1)],
+    )
+    w = d.to_word()
+    before = d.to_constitution()
+    for layout in ("rdkit", "coordgen", "auto"):
+        svg = d.to_svg(layout=layout)
+        assert "<svg" in svg
+    assert d == w.replay()
+    assert d.to_constitution() == before
