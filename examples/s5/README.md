@@ -70,14 +70,14 @@ endpoint allocation (including one-electron or zero-allocation connections).
 
 The currently committed 55 Notebooks were regenerated using **real Jupyter
 ipykernels** on October 13, 2026, following the generic ring-aware layout
-improvements. The [complete Actions run 38388645967](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38388645967)
+improvements. The [complete Actions run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509)
 successfully executed all 55 notebooks, 84 electron-allocation forms and
 **168 actual SVG outputs** (84 Constitution diagrams and 84 allocation
 diagrams). Each notebook contains six genuinely executed code cells. The
 environment was Python 3.11.17, RDKit 2026.09.1 and nbclient 0.11.0.
 The source/output SHA-256 fingerprints and per-notebook execution counts are
-recorded in `execution_report.json`. [Commit a9d27c7](https://github.com/sugakgroup/constructive-chemical-space/commit/a9d27c72a55837aa84c97500d6b6b581a25d8df1)
-contains the real-kernel outputs. The test suite passed **492 tests before
+recorded in `execution_report.json`. [Commit 5ef1bfb](https://github.com/sugakgroup/constructive-chemical-space/commit/5ef1bfb6278331c248d109155472e4a9109f1968)
+contains the real-kernel outputs. The test suite passed **494 tests before
 and after** this commit in the complete regeneration workflow.
 
 **No output or execution_count field is simulated.** To regenerate, execute
@@ -179,19 +179,30 @@ specific or element-specific branches. Actual output depends on the toolkit
 version and, for CoordGen, its possible local-minimum variability.
 
 The residual-electron dots are genuine SVG `<circle>` primitives (PNG:
-ellipses). Endpoint counts, atomic imbalance signs, and optional indexes
-retain machine-readable metadata in the output. Use `layout="auto"` by
-default or `layout="rdkit"`/`layout="coordgen"` for explicit comparisons.
+ellipses). Negative assignment-imbalance signs (`−` and `2−`, etc.) use
+SVG `<line>` strokes rather than Unicode text. IPython can normalize SVG
+character references back into UTF-8 characters, so vector strokes avoid
+visibly escaped byte sequences (e.g., `\\xe2\\x88\\x92`) inside stored
+Notebook figures. PNG uses equivalent rasterized strokes. The charge
+magnitude remains ASCII numeric text, and the actual assignment imbalance
+remains preserved as `data-count`/nucleus metadata. Every one of the 146
+negative-sign annotations in the latest 168 real-kernel SVGs is represented
+by a corresponding vector minus stroke, with **zero** raw U+2212 glyphs,
+`&#8722;` references, or escaped-byte sequences remaining.
+
+Endpoint counts, atomic imbalance signs, and optional indexes retain
+machine-readable metadata. Use `layout="auto"` by default or
+`layout="rdkit"`/`layout="coordgen"` for explicit comparisons.
 
 ### Validation and CI costs
 
 Ordinary source/test pushes run **representative Python 3.11 smoke tests**
-only. [Run 38387790562](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38387790562)
-passed 53 selected tests, executed 9 genuine Jupyter notebooks for 12 Forms
+only. [Run 38391449703](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391449703)
+passed 55 selected tests, executed 9 genuine Jupyter notebooks for 12 Forms
 and produced 24 actual SVG figures. Its preview artifact is temporary.
 
-The explicitly triggered [full-corpus workflow 38388645967](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38388645967)
-then regenerated **all 55 notebooks and 168 SVGs**, ran **492 tests twice**,
+The explicitly triggered [full-corpus workflow 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509)
+then regenerated **all 55 notebooks and 168 SVGs**, ran **494 tests twice**,
 and committed their authentic outputs to PR #4.
 The Python 3.10–3.12 complete matrix remains deferred until explicitly
 requested. PR #4 remains Draft and is not merged.
