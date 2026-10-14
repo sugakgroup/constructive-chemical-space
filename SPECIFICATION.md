@@ -1,6 +1,6 @@
 # CCS v1.0 specification mapping
 
-This document records the implementation contract for the private v1.0 preparation branch/repository. The authoritative formal basis is Supporting Information **Sections S1-S4** of *Defining Chemical Space Constructively*.
+This document maps the **v1.0 reference implementation** to Supporting Information Sections S1–S4 of *Defining Chemical Space Constructively*, which remain the authoritative formal definitions.
 
 ## S1 — Scope and formal objects
 
@@ -186,7 +186,7 @@ For `ElectronAllocation`, the public unassigned-electron field/keyword is `num_u
 
 ## Scope of S5 example verification
 
-The original PR #1 covers the **S5 deterministic construction-word convention**. PR #4 adds the complete machine-readable corpus of **55 S5 records and 84 electron-allocation forms**, individual explicit-word Jupyter notebooks, replay verification, and source-provenance checks. These are executable witnesses for the specified examples, not an assertion about physical geometry or exhaustive formal chemical space.
+The S5 deterministic construction-word convention and the complete machine-readable corpus of **55 records and 84 electron-allocation forms** are implemented with individual explicit-word Jupyter notebooks, replay verification, and source-provenance checks. These are executable witnesses for the specified examples, not an assertion about physical geometry or exhaustive formal chemical space.
 
 ## Explicitly excluded from the v1.0 contract
 

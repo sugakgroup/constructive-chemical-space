@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "constructive-chemical-space"
-version = "1.0.0.dev0"
+version = "1.0.0"
 description = "Reference implementation of Constructive Chemical Space (CCS)."
 readme = "README.md"
 license = {file = "LICENSE"}

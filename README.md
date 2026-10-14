@@ -1,360 +1,99 @@
-# Constructive Chemical Space
+# Constructive Chemical Space (CCS)
 
-Reference implementation of **Constructive Chemical Space (CCS)**, accompanying the manuscript *Defining Chemical Space Constructively*.
+Reference implementation for *Defining Chemical Space Constructively*.
 
-CCS separates three descriptive levels:
+CCS distinguishes **constitution**, **electron allocation**, and **construction**:
 
-- **constitution**: nuclear identities, direct connections, and total electron count;
-- **electron allocation**: assigned electron counts, endpoint allocations, and unassigned electrons;
-- **construction**: finite ordered operations that build electron-allocation forms.
+- Constitution: nuclear identities, direct connections and total electron count, `M = (C_X, S, N_e)`.
+- Electron allocation: electrons assigned to nuclei, allocation at each connection endpoint, and unassigned electrons.
+- Construction: finite words over `Nuc`, `Ele` and `Con`, with optional practical operations.
 
-This repository implements the formal specification in Supporting Information Sections S1-S4. Nuclear indices are not molecular identity fields: integer addresses exist only while a construction is executed or while an indexed convenience input is parsed.
+The authoritative formal definitions are in the manuscript's Supporting Information (SI Sections S1–S4). Worked examples and the fixed-index `W(D)` convention are in SI Section S5. Neither nucleus indices nor construction histories are intrinsic molecular identity fields.
 
-## Installation
+## Install
 
-For the core implementation and tests:
+Python **3.10 or later** is supported. From a checkout of this repository:
 
-```bash
-python -m pip install -e ".[test]"
-```
+~~~bash
+python -m pip install -e .
+~~~
 
-For optional RDKit projection:
+For drawing, RDKit conversion and local testing:
 
-```bash
+~~~bash
 python -m pip install -e ".[dev]"
-```
+~~~
 
-The package requires Python 3.10 or later.
+The core package has no mandatory third-party runtime dependencies. Visualization is optional; see the `visualization` extra in [pyproject.toml](pyproject.toml).
 
-## Public v1.0 API
+## Quick start
 
-The stable import surface is exposed from `constructive_chemical_space`:
+Construct a form from an explicit word, then obtain its constitution:
 
-```python
-from constructive_chemical_space import (
-    NuclearIdentity,
-    Nucleus,
-    NuclearCollection,
-    Connection,
-    AllocatedConnection,
-    Constitution,
-    ElectronAllocation,
-    Nuc,
-    Ele,
-    Con,
-    Word,
-    End,
-    Arg,
-    MacroCon,
-    Macro,
-    PracticalWord,
-    SearchProfile,
-    RDKitConversionError,
-)
-```
-
-Internal module paths are not part of the v1.0 API contract.
-
-## Core replay
-
-`Nuc(X; n, u)` installs one fresh nucleus. The second argument is the **assigned-electron count**, not a charge. When `n` is omitted, `Nuc(X)` uses the atomic number `Z(X)`. The optional `u` field is construction metadata used only by terminal `End` completion; changing `u` alone does not change ordinary core replay.
-
-```python
+~~~python
 from constructive_chemical_space import Nuc, Con, Word
 
-water = Word([
-    Nuc("O"),
-    Nuc("H"),
+word = Word([
+    Nuc("O"), Nuc("H"), Nuc("H"),
     Con(0, 1, 1, 1),
-    Nuc("H"),
     Con(0, 2, 1, 1),
 ])
+form = word.replay()                     # ElectronAllocation
+constitution = form.to_constitution()   # Constitution
+assert constitution.num_electrons == 10
+~~~
 
-D = water.replay()
-M = D.to_constitution()
-```
+`Nuc(X, n=None, u=0)` installs a nucleus with `n` assigned electrons (default `Z(X)`), **not** a formal charge. `Con(i, j, ai, aj)` uses temporary nucleus addresses and contributes a direct connection if applicable; an inapplicable `Con` is a complete no-op. `Ele()` adds an unassigned electron.
 
-`Con(i, j; ai, aj)` uses temporary construction addresses. Negative addresses are relative to the current installation order. An inapplicable `Con` is a complete no-op: it does not partially modify the state or overwrite an existing connection.
+Constitutional equality is index-independent:
 
-## Index-independent objects
-
-`Constitution` and `ElectronAllocation` are **immutable intrinsic value objects**. Their nuclear carriers, connections, assigned electron counts, and electron totals cannot be changed through attribute reassignment after construction. Assigned-electron inputs are defensively copied and stored read-only; `assigned_mapping()` returns a separate mutable copy. Convenience constructors may use temporary integer labels, but equality ignores arbitrary renaming of nuclei.
-
-```python
+~~~python
 from constructive_chemical_space import Constitution
 
-water_a = Constitution.from_indexed(
-    ["O", "H", "H"],
-    [(0, 1), (0, 2)],
-    10,
-)
+a = Constitution.from_indexed(["O", "H", "H"], [(0, 1), (0, 2)], 10)
+b = Constitution.from_indexed(["H", "O", "H"], [(1, 0), (1, 2)], 10)
+assert a == b
+~~~
 
-water_b = Constitution.from_indexed(
-    ["H", "O", "H"],
-    [(1, 0), (1, 2)],
-    10,
-)
+For any well-formed electron-allocation form `D`, `D.to_word(order=...)` constructs a replay witness. Supply an explicit sequence of the *same nuclei* when token-order reproducibility matters; omitting `order` gives a valid but not canonically indexed witness. `PracticalWord` supports finite macros and a terminal `End` operation for deterministic explicit-hydrogen completion. The [specification mapping](SPECIFICATION.md) records the exact v1.0 API and operation contracts.
 
-assert water_a == water_b
-```
+## Molecular representations and visualization
 
-## Constructive witnesses
+CCS connection and allocation data are not conventional bond orders. The derived assignment imbalance `q_v = Z(X(v)) - n_v` is **not** automatically a Lewis formal charge or an oxidation state. RDKit conversion (`to_rdkit_mol`, `to_smiles`) is an explicitly non-normative, potentially lossy projection.
 
-A well-formed electron-allocation form can produce one finite witness word:
+`Constitution`, `ElectronAllocation`, `Word` and `PracticalWord` support `show()`, `to_svg()`, `to_png()` and `save(path)` when visualization dependencies are installed.
 
-```python
-from constructive_chemical_space import ElectronAllocation
+~~~python
+form.show()                                    # IPython/Jupyter
+form.save("water-allocation.svg")
+constitution.save("water-constitution.svg")
+~~~
 
-D = ElectronAllocation.from_indexed(
-    ["O", "H", "H"],
-    [8, 1, 1],
-    [(0, 1, 1, 1), (0, 2, 1, 1)],
-)
+Diagrams retain **all nuclei, including H**, and every direct connection by default. Unusual endpoint allocations are labeled beside their own nuclei; group-13–17 residual valence electrons appear as vector dots, and negative assignment imbalances as vector strokes. Layout uses generic RDKit/CoordGen candidates and graph-based ring/cage quality criteria. Crossing-free diagrams are not enforced when this would degrade recognizable 2D chemical shapes. No 3D geometry, stereochemistry or physical electronic state is inferred. Omitting H from a depiction is an explicit **lossy** option.
 
-# Any chosen enumeration gives a valid witness.  For reproducible token
-# ordering across runs, preserve and pass an explicit sequence of Nucleus
-# objects, e.g. a Word.replay_state().address_table from the same form.
-w = D.to_word()
-assert w.replay() == D
-```
+## Reproducible SI S5 examples
 
-For **deterministic S5 construction words**, supply `D.to_word(order=nuclear_order)` where `nuclear_order` contains each nucleus of **that same D** exactly once. The resulting word installs nuclei in that order, emits `Ele` exactly `n_empty` times, and sorts `Con(i,j; ai,aj)` by increasing `(i,j)`, with `i < j` and allocations oriented to those endpoints. Without an explicit order, a valid but potentially different temporary enumeration is chosen. This does **not** define or require an intrinsic canonical numbering.
+The repository includes **55 individually executed Jupyter notebooks** covering **84 electron-allocation forms**, each containing explicit `Word([Nuc(...), Ele(), Con(...)])` source, actual Replay and tests against the S5 record. Every Form has an output for its Constitution and its electron allocation: **168 genuine saved SVG figures**.
 
-For example, when a form comes from replay, the accompanying temporary order can be retained explicitly:
+- [Index of all 55 S5 notebooks](examples/s5/NOTEBOOK_INDEX.md)
+- [Execution and regeneration instructions](examples/s5/README.md)
+- [Source transcription, correction and validation audit](S5_VALIDATION.md)
+- [Machine-readable source manifest](examples/s5/data/manifest.json) and [execution provenance](examples/s5/execution_report.json)
 
-```python
-state = water.replay_state()
-reproducible_word = state.form.to_word(order=state.address_table)
-assert reproducible_word.replay() == state.form
-```
+The last full execution was [GitHub Actions run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509) (Python 3.11.17, RDKit 2026.09.1, nbclient 0.11.0). The saved notebook outputs and their SHA-256 checksums are preserved in this repository; they have not been fabricated. An optional, **manual read-only** workflow regenerates the full corpus without overwriting the committed notebooks.
 
-The S1.4 auxiliary assignment imbalance `q_v = Z(X(v)) - n_v` is available through `D.assignment_imbalance(nucleus)`. The old `D.formal_charge(nucleus)` method remains as a **deprecated compatibility alias**, emitting `DeprecationWarning`; it does not assert a conventional Lewis formal charge or an oxidation state.
+**Editorial caveat:** The Record 13 (bis-periazulene) Forms B/C data include an author-confirmed correction. The final SI manuscript must independently incorporate that correction; the original PDF/DOCX source audit predates it. See [S5_VALIDATION.md](S5_VALIDATION.md).
 
-A constitution also provides the all-unassigned reference form used in the existence proof:
+## Testing and scope
 
-```python
-D0 = water_a.all_unassigned_form()
-assert D0.to_constitution() == water_a
-```
+~~~bash
+python -m pytest -q
+~~~
 
-## Terminal `End` completion
+The test suite covers `tests/test_s1_formal.py` through `test_s4_practical.py`, RDKit conversion, visualization, all 84 S5 witnesses and saved-notebook provenance. CI runs S1–S4 core tests with Python **3.10, 3.11, 3.12**, plus the full regression suite on Python 3.11. The audited post-merge implementation passed [550 tests](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38393815432).
 
-A practical input may contain `End`. The **first** `End` is terminal: it performs hydrogen completion once and all later tokens are ignored.
-
-Under the S4 convention implemented here, automatic hydrogen completion applies only to nuclei whose underlying elements are in periodic-table groups 13-17. Hydrogen itself is excluded from automatic completion.
-
-```python
-from constructive_chemical_space import Nuc, Con, End, PracticalWord
-
-ethene = PracticalWord([
-    Nuc("C"),
-    Nuc("C"),
-    Con(0, 1, 2, 2),
-    End(),
-])
-
-assert ethene.completion_counts() == (2, 2)
-D = ethene.replay()
-```
-
-`PracticalWord.expand()` returns the explicit-H core `Word` generated by the completion rule.
-
-## Finite macros
-
-Macros are finite abbreviations of ordinary construction tokens; they do not introduce new molecular primitives.
-
-External macro arguments are nonnegative addresses of nuclei that already exist when the macro is invoked. Inside a macro body, connection endpoints may use `Arg(k)` or negative relative addresses.
-
-```python
-from constructive_chemical_space import Arg, Macro, MacroCon, Nuc
-
-add_carbon = Macro(
-    "add_carbon",
-    num_args=1,
-    body=[
-        Nuc("C"),
-        MacroCon(Arg(0), -1, 1, 1),
-    ],
-)
-```
-
-If an external macro argument does not resolve to a pre-existing nucleus, the entire invocation contributes no core tokens.
-
-## Optional search profiles
-
-`SearchProfile` is only a **proposal policy**. It can restrict which candidate operations a search algorithm chooses to propose, but it does not change the construction alphabet, replay semantics, electron-allocation forms, `End`, or CCS constitutions.
-
-## Optional RDKit projection
-
-Electron-allocation forms can be projected to an RDKit `Mol` or, when possible, SMILES:
-
-```python
-mol = D.to_rdkit_mol()
-smiles = D.to_smiles(remove_hs=True)
-```
-
-This projection is deliberately downstream and lossy. CCS endpoint allocations are not bond orders, and CCS assignment imbalance is **not** defined as RDKit/Lewis formal charge. The implementation uses a conservative heuristic for RDKit bond types and initially projects `q_v` into the toolkit formal-charge field solely as a best-effort guess (with a possible dative-charge retry during sanitization). The original CCS quantity is retained independently as the RDKit atom property `_CCSAssignmentImbalance`; the legacy property `_CCSAuxCharge` is retained for compatibility. CCS endpoint-allocation data are also preserved as RDKit bond properties, and `n_empty` is never silently localized. By default, a form with unassigned electrons returns `None` for RDKit/SMILES projection unless `allow_unassigned=True` is requested for a structural `Mol` carrying the count only as metadata.
-
-## Visualization and export
-
-The optional visualization API is implemented **inside the single implementation
-module** `src/constructive_chemical_space/ccs.py`. The small package initializer
-`__init__.py` only exposes imports; no second CCS core or visualization source
-module is maintained.
-
-Install the optional dependencies:
-
-```bash
-python -m pip install -e ".[visualization]"
-```
-
-`Constitution`, `ElectronAllocation`, `Word`, and `PracticalWord`
-provide `.show()`, `.to_svg()`, `.to_png()`, and `.save(path)`.
-`.show()` displays an SVG directly in Jupyter/IPython; `.to_svg()`
-returns an SVG string, `.to_png()` returns PNG bytes, and
-`.save("figure.svg")` / `.save("figure.png")` writes a file.
-
-```python
-from constructive_chemical_space import ElectronAllocation
-
-D = ElectronAllocation.from_indexed(
-    ["O", "H", "H"], [8, 1, 1],
-    [(0, 1, 1, 1), (0, 2, 1, 1)],
-)
-D.show()                          # Jupyter / IPython
-D.show(diagnostics=True, show_indices=True)
-D.save("water-allocation.svg")    # same visualization without IPython
-D.to_png(width=900, height=600)   # PNG bytes
-D.to_constitution().show()        # graph-only view
-```
-
-**Faithful defaults:** Every explicit nucleus **including H**, and every direct
-connection, is shown by default. In constitution view a plain stroke means a
-direct CCS connection, not a conventional bond order. `N_e` is displayed in
-the figure footer; optionally use `show_total_charge=True`.
-
-Allocation view uses single/double/triple strokes for `(1,1)`, `(2,2)`,
-`(3,3)`, and illustrative arrows for `(2,0)` / `(0,2)`.
-All other endpoint allocations, including `(0,0)`, one-electron
-`(1,0)` and asymmetric `(3,2)`, are displayed **as two separate numbers
-positioned close to their own nuclei** (default
-`allocation_label_mode="endpoint"`). Their positions are calculated from the
-actual drawn bond endpoints rather than assuming that displayed left/right
-equals nuclear index order. For reproducibility, SVG text includes
-`data-bond`, `data-atom` (temporary display index), and `data-electrons`.
-The older central indexed label can be obtained with
-`allocation_label_mode="bond"` (e.g. `0:3, 2:1`), or hidden with
-`allocation_label_mode="none"`. `label_all_allocations=True` also annotates
-otherwise conventional glyphs such as `(1,1)`. The same endpoint-label
-placement is implemented in SVG and PNG.
-For **group-13–17 nuclei** (excluding H), the electron-allocation
-view also displays each residual **valence** electron as a dot: the count is
-`r_v - (Z_v - (group_v - 10))`, where `r_v = n_v - Σ_s a_{v,s}`.
-Thus neutral amine nitrogen gives `••` and water oxygen gives four dots.
-This is an allocation accounting display, **not a calculated radical spin or
-lone-pair orbital assignment**. If the count exceeds eight, the plot uses a
-numeric residual annotation instead of crowding the picture; negative valence
-remainders are not invented as electrons.
-
-The S1.4 auxiliary assignment imbalance `q_v = Z_v - n_v` is shown as
-compact atom-local `+`, `−`, `2−` etc. (SVG-annotated explicitly as a
-**CCS assignment imbalance**, not an independently proven Lewis/RDKit formal
-charge). `diagnostics=True` still shows `n`, total residual `r`, and
-`q` as optional debugging notes. Both valence dots and q symbols are
-annotations only, never RDKit charge/radical properties.
-
-`show_hydrogens=False` is an **explicit opt-in, lossy simplified depiction**:
-it omits H nuclei *and their connections* from the picture, including bridging
-or isotope-resolved hydrogen. Such images are marked `H omitted - lossy view`.
-They must not be treated as complete CCS constitutions or as faithful molecular
-identity diagrams.
-
-The optional `networkx` dependency classifies graph planarity. For
-`layout="auto"`, RDKit and CoordGen provide candidate 2D coordinates;
-high-degree graphs additionally use a generic CoordGen candidate with
-temporarily weakened hub connections. The same graph-based score for all
-nuclear identities prioritizes short-ring and cage geometry, ring-centered
-fully incident hubs, reasonable bond lengths, and nonbonded atom separation.
-Line crossings have only a weak penalty: **a planar graph may legitimately be
-depicted with crossings** to keep familiar chemical shapes. Mathematically
-nonplanar graphs show a warning; a seeded spring layout is used only if
-regular coordinate generation fails.
-No speculative 3D geometry is generated. In the S5 notebooks, the drawing
-canvas is automatically enlarged according to maximum connection degree so
-the visible bond distances also increase (coordinate-only scaling would
-be undone by RDKit's auto-fit).
-
-For reproducible indexed diagrams use `order=(...)` with the exact nucleus
-objects of the source form, or show a `Word` / `PracticalWord` (which preserves
-replay address order). Temporary `#index` labels are **off by default**; use
-`show_indices=True` only for diagnostics. Intrinsic CCS objects do not have canonical nuclear
-numbering. The visualization never mutates the CCS object or changes replay.
-
-RDKit depiction is downstream and non-normative. In particular, line styles,
-positions, and arrow glyphs are graphical interpretations only, not CCS identity
-fields or physical bonding assignments.
-
-## SI S5 worked examples (55 Jupyter notebooks)
-
-Each of the **55 numbered Section S5 records** has a dedicated runnable notebook in
-[`examples/s5/notebooks/`](examples/s5/notebooks/), covering all **84 electron-allocation
-forms**. Start with [`S5_01_H2.ipynb`](examples/s5/notebooks/S5_01_H2.ipynb),
-[`S5_02_H2O.ipynb`](examples/s5/notebooks/S5_02_H2O.ipynb), or
-[`S5_55_Catenane.ipynb`](examples/s5/notebooks/S5_55_Catenane.ipynb).
-
-The [S5 examples README](examples/s5/README.md) explains how each notebook
-defines complete, **literal** `Word([Nuc, Ele, Con])` construction sequences,
-actually replays them into new ElectronAllocation and Constitution objects,
-verifies both against the independently specified SI forms, and visualizes
-**the replay-produced objects** using `.show()` (all H explicit by default).
-
-All 55 notebooks include **actual Jupyter kernel execution outputs**
-from the final ring-aware layout and vector-minus rendering: **168 SVGs**
-(84 form-specific Constitutions and 84 ElectronAllocations). The latest
-[full Jupyter run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509)
-completed successfully with **494 tests passing both before and after
-committing** the authentic Notebook outputs. [Browse all 55 notebooks](examples/s5/NOTEBOOK_INDEX.md).
-All 84 form-specific constitutions are proved identical under the displayed
-nucleus-index bijection before rendering, including large symmetric examples.
-`examples/s5/execution_report.json` records genuine kernel execution counts,
-source/SVG SHA-256 hashes, and GitHub Actions run ID. No fabricated execution
-results are stored.
-
-One normalized source-data file, `examples/s5/data/s5_records.json.xz`,
-is shared by all notebooks and `tests/test_s5_examples.py`. The separate
-`examples/s5/data/manifest.json` indexes notebook filenames, SI references
-and Table S4 expected values. No duplicate CCS core is introduced.
-See [S5_VALIDATION.md](S5_VALIDATION.md) for source hashes, transcription
-verification and reproducibility limitations.
-
-## Tests
-
-The tests are organized by the formal specification:
-
-```text
-tests/test_s1_formal.py
-tests/test_s2_replay.py
-tests/test_s3_coverage.py
-tests/test_s4_practical.py
-tests/test_rdkit_projection.py
-tests/test_visualization.py
-tests/test_s5_examples.py
-```
-
-The core suite also checks intrinsic isomorphism, immutability and defensive copying, deterministic S5 word generation for explicit nuclear order, multi-residue glycine macros, End eligibility boundaries, and valid/invalid macro arguments. All 55 S5 records and 84 forms are maintained in the examples/s5 data fixture, and verified by executable Notebook and Replay tests.
-
-Run them with:
-
-```bash
-python -m pytest
-```
-
-## Scope
-
-The reference implementation does **not** infer a unique CCS connection set from geometry or electronic structure, rank electron-allocation forms by physical relevance, or treat RDKit conversion as a lossless CCS serialization. Stereochemistry, conformational geometry, spin/electronic-state labels, and mechanical topology are outside the current CCS constitutional identity.
-
-See [`SPECIFICATION.md`](SPECIFICATION.md) for the implementation-to-SI mapping and the v1.0 API boundary, and [`CONFORMANCE.md`](CONFORMANCE.md) for a requirement-to-test matrix and explicit limitations of the current evidence.
+CCS does not infer the connection graph from physical structure, rank electron-allocation forms, or define stereochemical, conformational, spin or topological identities. The [specification mapping](SPECIFICATION.md) states the supported API and boundaries.
 
 ## License
 
-MIT License. See [`LICENSE`](LICENSE).
+MIT. See [LICENSE](LICENSE).

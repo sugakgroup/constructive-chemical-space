@@ -57,7 +57,7 @@ print(len(corpus["records"]))  # 55
 
 The original PDF and DOCX are not committed to the repository. The included hashes and source positions permit an external source audit; CI **does not** independently regenerate the fixture from those documents. Passing these tests establishes consistency and reproducible witnesses for the **specified** 84 forms, not physical chemical validity or exhaustive coverage of all finite CCS words.
 
-**Status**: source-level checks pass; executable CI status is reported by the PR's latest workflow run. This PR must not change S1–S4 semantics or be merged without explicit approval.
+**Status**: Source-level fixture checks and post-merge executable CI passed. The final SI manuscript still requires synchronization of the explicitly author-corrected Record 13 Forms B/C; the archived original PDF/DOCX extraction audit covers the pre-correction version.
 
 ## Notebook organization and execution
 
