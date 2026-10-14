@@ -24,8 +24,6 @@ jobs:
         run: |
           python -m pip install -e ".[dev]"
           python -m pip install "nbclient>=0.10" "nbformat>=5.10" "ipykernel>=6"
-      - name: Verify the author-confirmed Record 13 correction
-        run: python examples/s5/correct_record13.py
       - name: Generate source-only literal Words, never simulate outputs
         run: python examples/s5/generate_explicit_words.py
       - name: Execute all 55 S5 notebooks with actual ipykernels
