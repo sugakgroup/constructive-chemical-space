@@ -82,8 +82,6 @@ The repository includes **55 individually executed Jupyter notebooks** covering 
 
 The last full execution was [GitHub Actions run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509) (Python 3.11.17, RDKit 2026.09.1, nbclient 0.11.0). The saved notebook outputs and their SHA-256 checksums are preserved in this repository; they have not been fabricated. An optional, **manual read-only** workflow regenerates the full corpus without overwriting the committed notebooks.
 
-**Editorial caveat:** The Record 13 (bis-periazulene) Forms B/C data include an author-confirmed correction. The final SI manuscript must independently incorporate that correction; the original PDF/DOCX source audit predates it. See [S5_VALIDATION.md](S5_VALIDATION.md).
-
 ## Testing and scope
 
 ~~~bash

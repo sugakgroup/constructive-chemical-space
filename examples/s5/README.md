@@ -42,8 +42,8 @@ python -m pytest -q tests/test_s5_examples.py tests/test_visualization.py
 
 Alternatively, use the read-only GitHub Actions workflow [`execute_s5_notebooks.yml`](../../.github/workflows/execute_s5_notebooks.yml) to produce a downloadable archive without updating the canonical branch. Generated standalone graphics can be saved through `export_example(...)`; the optional `outputs/` directory is created on demand and ignored by Git.
 
-## Scope and known source correction
+## Scope
 
 The drawings retain direct CCS connections and distinguish all specified electron-allocation Forms. They are **not calculated 3D geometries**, conventional bond-order assignments, Lewis-charge determinations or stereochemical/topological identities. Negative assignment-imbalance signs are vector strokes; residual electrons are SVG circles.
 
-**Record 13:** The validated Forms B/C fixture uses `(C(9), C(14)): (2,2)` and `(C(13), C(14)): (1,1)`; Form C retains `n(C(0)) = 7`, `n(C(7)) = 5`. This correction must also appear in the final manuscript SI. The full source-level audit, original-document hashes and scope of verification are documented in [S5_VALIDATION.md](../../S5_VALIDATION.md).
+Source-audit scope, input-document fingerprints, and fixture validation are documented in [S5_VALIDATION.md](../../S5_VALIDATION.md).
