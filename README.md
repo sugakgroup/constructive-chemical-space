@@ -92,6 +92,10 @@ The test suite covers `tests/test_s1_formal.py` through `test_s4_practical.py`, 
 
 CCS does not infer the connection graph from physical structure, rank electron-allocation forms, or define stereochemical, conformational, spin or topological identities. The [specification mapping](SPECIFICATION.md) states the supported API and boundaries.
 
+## How to cite
+
+K. Suga, **2026**, *submitted*.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
