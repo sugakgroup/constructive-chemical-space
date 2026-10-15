@@ -26,7 +26,7 @@ Open any file in `examples/s5/notebooks/`. The notebooks use the same implementa
 | [`execution_report.json`](execution_report.json) | Real-kernel run, per-notebook execution counts and SVG/source hashes |
 | [`NOTEBOOK_INDEX.md`](NOTEBOOK_INDEX.md) | Direct links to the 55 saved notebooks |
 
-The committed notebooks contain **genuine Jupyter kernel outputs**: 84 Constitution SVGs plus 84 ElectronAllocation SVGs. All 55 notebooks were last regenerated in [run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509), which passed 494 validation tests before and after output commit [`5ef1bfb`](https://github.com/sugakgroup/constructive-chemical-space/commit/5ef1bfb6278331c248d109155472e4a9109f1968).
+The committed notebooks contain **genuine Jupyter kernel outputs**: 84 Constitution SVGs plus 84 ElectronAllocation SVGs. All 55 corrected v1.0.0 notebooks were regenerated in [run 38704002752](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38704002752). The original pre-correction execution was [run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509).
 
 ## Regenerate locally
 

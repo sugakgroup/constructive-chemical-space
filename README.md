@@ -80,7 +80,7 @@ The repository includes **55 individually executed Jupyter notebooks** covering 
 - [Source transcription, correction and validation audit](S5_VALIDATION.md)
 - [Machine-readable source manifest](examples/s5/data/manifest.json) and [execution provenance](examples/s5/execution_report.json)
 
-The last full execution was [GitHub Actions run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509) (Python 3.11.17, RDKit 2026.09.1, nbclient 0.11.0). The saved notebook outputs and their SHA-256 checksums are preserved in this repository; they have not been fabricated. An optional, **manual read-only** workflow regenerates the full corpus without overwriting the committed notebooks.
+The corrected v1.0.0 corpus was re-executed in [GitHub Actions run 38704002752](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38704002752). The saved notebook outputs and their SHA-256 checksums are preserved in this repository; they have not been fabricated. An optional, **manual read-only** workflow regenerates the full corpus without overwriting the committed notebooks.
 
 ## Testing and scope
 
@@ -88,7 +88,7 @@ The last full execution was [GitHub Actions run 38391623509](https://github.com/
 python -m pytest -q
 ~~~
 
-The test suite covers `tests/test_s1_formal.py` through `test_s4_practical.py`, RDKit conversion, visualization, all 84 S5 witnesses and saved-notebook provenance. CI runs S1–S4 core tests with Python **3.10, 3.11, 3.12**, plus the full regression suite on Python 3.11. The audited post-merge implementation passed [550 tests](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38393815432).
+The test suite covers `tests/test_s1_formal.py` through `test_s4_practical.py`, RDKit conversion, visualization, all 84 S5 witnesses and saved-notebook provenance. CI runs S1–S4 core tests with Python **3.10, 3.11, 3.12**, plus the full regression suite on Python 3.11. The corrected v1.0.0 corpus was re-tested in [run 38704002752](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38704002752).
 
 CCS does not infer the connection graph from physical structure, rank electron-allocation forms, or define stereochemical, conformational, spin or topological identities. The [specification mapping](SPECIFICATION.md) states the supported API and boundaries.
 
