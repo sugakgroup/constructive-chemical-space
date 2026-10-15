@@ -2,7 +2,7 @@
   "schema": "ccs-s5-notebooks-1.0",
   "description": "Index of 55 reproducible CCS S5 notebooks, with one shared data fixture for 84 full electron-allocation forms",
   "data_file": "s5_records.json.xz",
-  "data_sha256": "0b10a14089114d4e0aca44a99f45ca68a78bb6bea5232d0ba5304b98ba98e426",
+  "data_sha256": "6478ed51a58d5c0ccb4acdacee9335befedc3f28a4084bc0dcd96a8d9ffe6a43",
   "record_count": 55,
   "form_count": 84,
   "source": {
@@ -12,7 +12,7 @@
     "docx_sha256": "00513db5f6d68fe456911460cbedbf185f77393d01e2642d081079a0c09cb89a",
     "pdf_sha256": "777f7746048a1859aef9c955a0346063082a3ff91384c319dfc90b765bfa31b5",
     "table": "Table S4",
-    "preserves_si": true
+    "preserves_si": false
   },
   "records": [
     {
@@ -1293,6 +1293,30 @@
           67
         ]
       }
+    }
+  ],
+  "source_corrections": [
+    {
+      "date": "2026-10-15",
+      "record": 10,
+      "form": "C",
+      "reason": "Match para-charge-separated Form C in main-text Figure 2; SI text requires matching correction",
+      "assigned_changes": {
+        "C(1)": {
+          "before": 7,
+          "after": 6
+        },
+        "C(3)": {
+          "before": 6,
+          "after": 7
+        }
+      },
+      "unchanged": [
+        "n_empty",
+        "connections",
+        "endpoint_allocations",
+        "total_electrons"
+      ]
     }
   ]
 }

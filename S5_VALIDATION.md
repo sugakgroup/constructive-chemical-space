@@ -23,10 +23,16 @@ There are 1,793 nucleus entries and 2,014 connection entries over the 55 example
 ### Fixture integrity
 
 The normalized S5 fixture has SHA-256
-`0b10a14089114d4e0aca44a99f45ca68a78bb6bea5232d0ba5304b98ba98e426`,
+`6478ed51a58d5c0ccb4acdacee9335befedc3f28a4084bc0dcd96a8d9ffe6a43`,
 recorded in `examples/s5/data/manifest.json` and verified by CI. The manifest
 also retains source-document fingerprints from the original extraction for
 traceability; these are not fingerprints for later manuscript revisions.
+
+### Editorial correction to phenol Form C (2026-10-15)
+
+Record 10, Form C has assigned-electron counts C(1):6 and C(3):7, instead of C(1):7 and C(3):6. Thus it represents the para-charge-separated phenol form shown in manuscript Figure 2. Form B retains the ortho assignment C(1):7. In Form C, O(6):7, all endpoint allocations, all connections, unassigned electrons, and the total of 50 electrons are unchanged. The corrected fixture is replayed and the corresponding notebook outputs are genuinely regenerated.
+
+The source-document fingerprints identify the earlier SI extraction and are retained only as historical provenance. They are NOT checksums of the corrected SI PDF; the manuscript SI Form C text must be revised accordingly before submission. For this reason source.preserves_si is set to false in the corrected manifest.
 
 ## Machine-readable fixture
 
@@ -69,10 +75,9 @@ the complete word tokens against the S5 fixture and validates
 the constructed objects. The diagrams display **these replay-generated
 objects**, not the reference fixture forms.
 
-The actual notebook outputs **are committed**. The latest
-[GitHub Actions run 38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509)
-regenerated all 55 notebooks after adopting the ring-aware layout and vector
-negative-charge signs. The notebooks ran through real Jupyter ipykernels via
+The actual notebook outputs **are committed**. The original corpus run was
+[38391623509](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38391623509);
+the corrected v1.0.0 corpus was rerun in [run 38704002752](https://github.com/sugakgroup/constructive-chemical-space/actions/runs/38704002752). The notebooks ran through real Jupyter ipykernels via
 `nbclient.NotebookClient.execute()` (six code cells per Notebook). The
 resulting genuine outputs were committed as
 [5ef1bfb](https://github.com/sugakgroup/constructive-chemical-space/commit/5ef1bfb6278331c248d109155472e4a9109f1968).
