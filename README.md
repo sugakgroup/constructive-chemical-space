@@ -94,7 +94,7 @@ CCS does not infer the connection graph from physical structure, rank electron-a
 
 ## How to cite
 
-K. Suga, *ChemRxiv* **2026**. DOI: [10.26434/chemrxiv.15011112/v1](https://chemrxiv.org/doi/full/10.26434/chemrxiv.15011112/v1)
+K. Suga, "Defining Chemical Space Constructively", *ChemRxiv* **2026**. DOI: [10.26434/chemrxiv.15011112/v1](https://chemrxiv.org/doi/full/10.26434/chemrxiv.15011112/v1)
 
 ## License
 
